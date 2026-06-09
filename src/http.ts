@@ -103,29 +103,35 @@ export class HttpClient {
 
     let lastError: unknown;
     for (let attempt = 0; attempt < attempts; attempt++) {
+      let response: Response;
       try {
-        const response = await this.fetchImpl(url, requestInit);
-
-        if (!response.ok) {
-          const error = await toWPApiError(response);
-          const isRetryable = retryableStatusCodes.includes(response.status);
-          if (isRetryable && attempt < attempts - 1) {
-            lastError = error;
-            await sleep(backoffDelay(backoffMs, attempt));
-            continue;
-          }
-          throw error;
-        }
-
-        const data = (await response.json()) as T;
-        return { data, response };
+        response = await this.fetchImpl(url, requestInit);
       } catch (error) {
-        if (error instanceof WPApiError) throw error;
-
         // Network-level error: retry if attempts remain
         lastError = error;
         if (attempt === attempts - 1) throw error;
         await sleep(backoffDelay(backoffMs, attempt));
+        continue;
+      }
+
+      if (!response.ok) {
+        const error = await toWPApiError(response);
+        const isRetryable = retryableStatusCodes.includes(response.status);
+        if (isRetryable && attempt < attempts - 1) {
+          lastError = error;
+          await sleep(backoffDelay(backoffMs, attempt));
+          continue;
+        }
+        throw error;
+      }
+
+      try {
+        const data = (await response.json()) as T;
+        return { data, response };
+      } catch (error) {
+        // An OK response with an unparseable body is not transient: do not retry
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new WPApiError(`Failed to parse response body as JSON: ${reason}`, response.status);
       }
     }
 

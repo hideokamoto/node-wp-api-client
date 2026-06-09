@@ -81,6 +81,13 @@ describe('createWPClient', () => {
       await wp.posts.getBySlug('hello', { _embed: true });
       expect(lastRequestUrl(fetchMock).searchParams.get('_embed')).toBe('1');
     });
+
+    it('requests only a single item with per_page=1', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([post(1)]));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await wp.posts.getBySlug('hello');
+      expect(lastRequestUrl(fetchMock).searchParams.get('per_page')).toBe('1');
+    });
   });
 
   describe('posts.listAll', () => {
@@ -116,6 +123,30 @@ describe('createWPClient', () => {
       expect(items).toHaveLength(1);
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    it('limits concurrent page requests and preserves page order', async () => {
+      const totalPages = 9;
+      let active = 0;
+      let maxActive = 0;
+      const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+        active++;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active--;
+        const page = Number(new URL(url).searchParams.get('page'));
+        return jsonResponse([post(page)], {
+          'X-WP-Total': String(totalPages),
+          'X-WP-TotalPages': String(totalPages),
+        });
+      });
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+
+      const items = await wp.posts.listAll();
+
+      expect(items.map((p) => p.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      expect(fetchMock).toHaveBeenCalledTimes(totalPages);
+      expect(maxActive).toBeLessThanOrEqual(5);
+    });
   });
 
   describe('built-in collections', () => {
@@ -140,6 +171,13 @@ describe('createWPClient', () => {
       const wp = createWPClient({ baseUrl: 'https://wp-api.wp-kyoto.net', fetch: fetchMock });
       await wp.postType('thoughs').list({ per_page: 20 });
       expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/wp/v2/thoughs');
+    });
+
+    it('normalizes leading/trailing slashes in the rest base', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await wp.postType('/events/').list();
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/wp/v2/events');
     });
 
     it('taxonomy() targets the custom taxonomy endpoint', async () => {

@@ -121,9 +121,10 @@ export class WPApiClient {
     TEmbedView extends object = TView,
     TEmbedded extends object = Record<string, unknown>,
   >(restBase: string): WPCollection<TView, TEmbedView, TEmbedded> {
+    const normalizedBase = restBase.replace(/^\/+|\/+$/g, '');
     return new WPCollection<TView, TEmbedView, TEmbedded>(
       this.http,
-      `/${this.namespace}/${restBase}`,
+      `/${this.namespace}/${normalizedBase}`,
       this.defaultQuery
     );
   }

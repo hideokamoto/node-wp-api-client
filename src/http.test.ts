@@ -35,6 +35,19 @@ describe('HttpClient', () => {
   });
 
   describe('responses', () => {
+    it('throws WPApiError without retrying when an OK response has an invalid JSON body', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('not json', { status: 200 }));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { backoffMs: 0 },
+      });
+      const error = await http.get('/wp/v2/posts').catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WPApiError);
+      expect((error as WPApiError).status).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('returns parsed data and the raw response', async () => {
       const fetchMock = vi
         .fn()

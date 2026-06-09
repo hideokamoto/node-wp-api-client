@@ -74,6 +74,9 @@ export type WPListResult<T> = {
 type EmptyQuery = Record<never, never>;
 
 const DEFAULT_LIST_ALL_PER_PAGE = 100;
+// Cap on parallel page requests in listAll, to avoid tripping rate limits
+// or exhausting sockets on large collections.
+const LIST_ALL_CONCURRENCY = 5;
 
 const intHeader = (response: Response, name: string, fallback: number): number => {
   const raw = response.headers.get(name);
@@ -132,13 +135,21 @@ export class WPCollection<
     const items = [...firstPage.items] as Item[];
 
     if (firstPage.totalPages > 1) {
-      const restPages = await Promise.all(
-        Array.from({ length: firstPage.totalPages - 1 }, (_, index) =>
-          this.list(pageQuery(index + 2), init)
-        )
+      const restPageCount = firstPage.totalPages - 1;
+      const results = new Array<Item[]>(restPageCount);
+      let nextIndex = 0;
+      const worker = async () => {
+        while (nextIndex < restPageCount) {
+          const index = nextIndex++;
+          const page = await this.list(pageQuery(index + 2), init);
+          results[index] = page.items as Item[];
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(LIST_ALL_CONCURRENCY, restPageCount) }, worker)
       );
-      for (const page of restPages) {
-        items.push(...(page.items as Item[]));
+      for (const pageItems of results) {
+        items.push(...pageItems);
       }
     }
 
@@ -164,7 +175,7 @@ export class WPCollection<
     init?: WPRequestInit
   ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q> | null> {
     type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
-    const { items } = await this.list({ ...query, slug } as WPListQuery<TView>, init);
+    const { items } = await this.list({ ...query, slug, per_page: 1 } as WPListQuery<TView>, init);
     return (items[0] as Item | undefined) ?? null;
   }
 }
