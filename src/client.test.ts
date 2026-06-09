@@ -247,10 +247,10 @@ describe('createWPClient', () => {
       const wp = createWPClient({
         baseUrl: 'https://example.com',
         fetch: fetchMock,
-        namespace: 'wp/v2',
+        namespace: 'custom/v1',
       });
       await wp.posts.list();
-      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/wp/v2/posts');
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/custom/v1/posts');
     });
   });
 });

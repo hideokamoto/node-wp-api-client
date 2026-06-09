@@ -35,8 +35,8 @@ const { items: cards } = await wp.posts.list({
 npm install node-wp-api-client
 ```
 
-Requires Node.js 18+ (native `fetch`). Works on Cloudflare Workers and other
-edge runtimes.
+Requires Node.js 20.19+ (or 22.12+). Works on Cloudflare Workers and other
+edge runtimes with a native `fetch`.
 
 ## Creating a client
 
@@ -79,9 +79,9 @@ const bySlug = await wp.posts.getBySlug('hello-world');  // null when not found
 ### Custom post types & taxonomies
 
 ```ts
-// /wp/v2/thoughs
-const thoughts = wp.postType('thoughs');
-await thoughts.list({ per_page: 20, _embed: 'wp:term' });
+// /wp/v2/case-studies
+const caseStudies = wp.postType('case-studies');
+await caseStudies.list({ per_page: 20, _embed: 'wp:term' });
 
 // Bring your own entity type
 type WPEvent = WPPost & { acf: { venue: string } };
