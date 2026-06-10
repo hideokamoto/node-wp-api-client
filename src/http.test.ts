@@ -16,6 +16,7 @@ describe('HttpClient', () => {
       ['https://example.com/', 'https://example.com/wp-json/wp/v2/posts'],
       ['https://example.com/wp-json', 'https://example.com/wp-json/wp/v2/posts'],
       ['https://example.com/wp-json/', 'https://example.com/wp-json/wp/v2/posts'],
+      ['https://example.com/blog', 'https://example.com/blog/wp-json/wp/v2/posts'],
     ])('normalizes baseUrl %s', async (baseUrl, expected) => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
       const http = new HttpClient({ baseUrl, fetch: fetchMock });
@@ -127,6 +128,31 @@ describe('HttpClient', () => {
       });
       await expect(http.get('/wp/v2/posts')).rejects.toThrow('fetch failed');
       expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it('throws WPApiError with the retryable status when every attempt fails', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 503 }));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { attempts: 3, backoffMs: 0 },
+      });
+      const error = await http.get('/wp/v2/posts').catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WPApiError);
+      expect((error as WPApiError).status).toBe(503);
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it('throws the original error when every attempt fails with a network error', async () => {
+      const networkError = new TypeError('fetch failed');
+      const fetchMock = vi.fn().mockRejectedValue(networkError);
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { attempts: 2, backoffMs: 0 },
+      });
+      await expect(http.get('/wp/v2/posts')).rejects.toBe(networkError);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('does not retry when retry is disabled', async () => {
