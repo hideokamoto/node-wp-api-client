@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # release-please のバージョンコミットでは再実行しない
+    if: "!contains(github.event.head_commit.message || '', 'chore(main): release')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine next version, tag, and GitHub Release
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          skip-github-pull-request: true
+
+      - uses: actions/setup-node@v4
+        if: ${{ steps.release.outputs.release_created }}
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - if: ${{ steps.release.outputs.release_created }}
+        run: npm ci
+
+      - if: ${{ steps.release.outputs.release_created }}
+        run: npm test
+
+      - if: ${{ steps.release.outputs.release_created }}
+        run: npm run build
+
+      - if: ${{ steps.release.outputs.release_created }}
+        name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
