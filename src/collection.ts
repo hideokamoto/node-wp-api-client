@@ -162,6 +162,9 @@ export class WPCollection<
     query?: Q,
     init?: WPRequestInit
   ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q>> {
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new TypeError(`Entity id must be a positive integer, got: ${id}`);
+    }
     type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
     const params = buildQuery({ ...this.defaultQuery, ...query });
     const { data } = await this.http.get<Item>(`${this.path}/${id}`, params, init);
