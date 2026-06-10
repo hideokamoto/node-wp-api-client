@@ -47,6 +47,24 @@ describe('createWPClient', () => {
       expect(result.total).toBe(1);
       expect(result.totalPages).toBe(1);
     });
+
+    it('returns totalPages=0 when there are no items and X-WP-TotalPages is missing', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const result = await wp.posts.list();
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('derives totalPages from total and per_page when X-WP-TotalPages is missing', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse([post(1), post(2)], { 'X-WP-Total': '5' })
+      );
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const result = await wp.posts.list({ per_page: 2 });
+      expect(result.total).toBe(5);
+      expect(result.totalPages).toBe(3); // Math.ceil(5/2)
+    });
   });
 
   describe('posts.get', () => {
@@ -144,6 +162,17 @@ describe('createWPClient', () => {
       const items = await wp.posts.listAll();
       expect(items).toHaveLength(1);
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('fetches all pages when X-WP-TotalPages is missing but X-WP-Total indicates multiple pages', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse([post(1), post(2)], { 'X-WP-Total': '3' }))
+        .mockResolvedValueOnce(jsonResponse([post(3)], { 'X-WP-Total': '3' }));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const items = await wp.posts.listAll({ per_page: 2 });
+      expect(items.map((p) => p.id)).toEqual([1, 2, 3]);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('limits concurrent page requests and preserves page order', async () => {
