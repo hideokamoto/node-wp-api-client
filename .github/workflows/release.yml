@@ -16,7 +16,7 @@ concurrency:
 jobs:
   release:
     # release-please のバージョンコミットでは再実行しない
-    if: ${{ !startsWith(github.event.head_commit.message, 'chore(main): release') }}
+    if: "!contains(github.event.head_commit.message || '', 'chore(main): release')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
