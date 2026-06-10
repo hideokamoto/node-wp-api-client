@@ -1,6 +1,6 @@
 {
   "name": "node-wp-api-client",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Type-safe WordPress REST API client (GET only) with response types that follow your query (_fields, _embed, context)",
   "type": "module",
   "main": "./dist/index.cjs",
