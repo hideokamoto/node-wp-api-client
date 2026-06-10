@@ -65,6 +65,20 @@ describe('createWPClient', () => {
       expect(result.total).toBe(5);
       expect(result.totalPages).toBe(3); // Math.ceil(5/2)
     });
+
+    it('uses defaultQuery.per_page to derive totalPages when X-WP-TotalPages is missing', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse([post(1), post(2)], { 'X-WP-Total': '5' })
+      );
+      const wp = createWPClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        defaultQuery: { per_page: 2 },
+      });
+      const result = await wp.posts.list();
+      expect(result.total).toBe(5);
+      expect(result.totalPages).toBe(3); // Math.ceil(5/2) using defaultQuery.per_page
+    });
   });
 
   describe('posts.get', () => {

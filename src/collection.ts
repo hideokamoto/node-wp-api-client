@@ -110,7 +110,8 @@ export class WPCollection<
     const params = buildQuery({ ...this.defaultQuery, ...query });
     const { data, response } = await this.http.get<Item[]>(this.path, params, init);
     const total = intHeader(response, 'X-WP-Total', data.length);
-    const perPage = Math.max((query as { per_page?: number } | undefined)?.per_page ?? 10, 1);
+    const parsedPerPage = Number.parseInt(params.get('per_page') ?? '10', 10);
+    const perPage = Number.isFinite(parsedPerPage) && parsedPerPage > 0 ? parsedPerPage : 10;
     return {
       items: data,
       total,
