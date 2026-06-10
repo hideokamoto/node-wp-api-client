@@ -155,6 +155,35 @@ describe('HttpClient', () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
+    it('does not retry when fetch rejects with an AbortError', async () => {
+      const abortError = new DOMException('The operation was aborted.', 'AbortError');
+      const fetchMock = vi.fn().mockRejectedValue(abortError);
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { attempts: 3, backoffMs: 1000 },
+      });
+      const start = Date.now();
+      await expect(http.get('/wp/v2/posts')).rejects.toBe(abortError);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(Date.now() - start).toBeLessThan(500);
+    });
+
+    it('does not retry when the request signal is already aborted', async () => {
+      const fetchMock = vi.fn().mockRejectedValue(new Error('aborted'));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { attempts: 3, backoffMs: 1000 },
+      });
+      const controller = new AbortController();
+      controller.abort();
+      await expect(
+        http.get('/wp/v2/posts', undefined, { signal: controller.signal })
+      ).rejects.toThrow('aborted');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('does not retry when retry is disabled', async () => {
       const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 503 }));
       const http = new HttpClient({

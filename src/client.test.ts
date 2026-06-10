@@ -73,6 +73,28 @@ describe('createWPClient', () => {
     });
   });
 
+  describe('posts.get id validation', () => {
+    it.each([
+      Number.NaN,
+      1.5,
+      -1,
+      0,
+      Number.POSITIVE_INFINITY,
+    ])('rejects invalid id %p with a TypeError without making a request', async (id) => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse(post(1)));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await expect(wp.posts.get(id)).rejects.toThrow(TypeError);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects a path traversal id passed from untyped code', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse(post(1)));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await expect(wp.posts.get('1/../../users' as unknown as number)).rejects.toThrow(TypeError);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
   describe('posts.getBySlug', () => {
     it('returns the first matching post', async () => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse([post(1, 'hello-world')]));
@@ -255,6 +277,13 @@ describe('createWPClient', () => {
       expect(url.searchParams.get('orderby')).toBe('name');
     });
 
+    it('encodes special characters in the rest base', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await wp.postType('a?b#c').list();
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/wp/v2/a%3Fb%23c');
+    });
+
     it('supports custom taxonomy filter params on post type queries', async () => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
       const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
@@ -341,6 +370,28 @@ describe('createWPClient', () => {
       });
       await wp.posts.list();
       expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/custom/v1/posts');
+    });
+
+    it('keeps multi-segment namespaces intact while encoding each segment', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        namespace: 'myplugin/v1',
+      });
+      await wp.postType('events').list();
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/myplugin/v1/events');
+    });
+
+    it('encodes special characters in namespace segments', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        namespace: 'my plugin/v1',
+      });
+      await wp.posts.list();
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/my%20plugin/v1/posts');
     });
   });
 });
