@@ -19,6 +19,7 @@ export const buildQuery = (query?: Record<string, WPQueryValue>): URLSearchParam
 
   for (const [key, value] of Object.entries(query)) {
     if (value === undefined || value === null) continue;
+    if (Array.isArray(value) && value.length === 0) continue;
 
     if (key === '_embed') {
       if (value === false) continue;

@@ -27,6 +27,13 @@ describe('buildQuery', () => {
     expect(params.get('slug')).toBe('a,b');
   });
 
+  it('omits empty arrays', () => {
+    const params = buildQuery({ include: [], slug: 'a' });
+    expect(params.has('include')).toBe(false);
+    expect(params.get('slug')).toBe('a');
+    expect(params.toString()).toBe('slug=a');
+  });
+
   it('serializes booleans as true/false', () => {
     const params = buildQuery({ hide_empty: true, sticky: false });
     expect(params.get('hide_empty')).toBe('true');
@@ -52,6 +59,11 @@ describe('buildQuery', () => {
   it('serializes _embed with specific relations', () => {
     expect(buildQuery({ _embed: 'wp:term' }).get('_embed')).toBe('wp:term');
     expect(buildQuery({ _embed: ['wp:term', 'author'] }).get('_embed')).toBe('wp:term,author');
+  });
+
+  it('omits _embed: []', () => {
+    const params = buildQuery({ _embed: [] });
+    expect(params.has('_embed')).toBe(false);
   });
 
   it('joins _fields with commas', () => {
