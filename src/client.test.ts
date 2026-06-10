@@ -47,6 +47,38 @@ describe('createWPClient', () => {
       expect(result.total).toBe(1);
       expect(result.totalPages).toBe(1);
     });
+
+    it('returns totalPages=0 when there are no items and X-WP-TotalPages is missing', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const result = await wp.posts.list();
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('derives totalPages from total and per_page when X-WP-TotalPages is missing', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse([post(1), post(2)], { 'X-WP-Total': '5' })
+      );
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const result = await wp.posts.list({ per_page: 2 });
+      expect(result.total).toBe(5);
+      expect(result.totalPages).toBe(3); // Math.ceil(5/2)
+    });
+
+    it('uses defaultQuery.per_page to derive totalPages when X-WP-TotalPages is missing', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(
+        jsonResponse([post(1), post(2)], { 'X-WP-Total': '5' })
+      );
+      const wp = createWPClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        defaultQuery: { per_page: 2 },
+      });
+      const result = await wp.posts.list();
+      expect(result.total).toBe(5);
+      expect(result.totalPages).toBe(3); // Math.ceil(5/2) using defaultQuery.per_page
+    });
   });
 
   describe('posts.get', () => {
@@ -56,6 +88,28 @@ describe('createWPClient', () => {
       const result = await wp.posts.get(123);
       expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/wp/v2/posts/123');
       expect(result.id).toBe(123);
+    });
+  });
+
+  describe('posts.get id validation', () => {
+    it.each([
+      Number.NaN,
+      1.5,
+      -1,
+      0,
+      Number.POSITIVE_INFINITY,
+    ])('rejects invalid id %p with a TypeError without making a request', async (id) => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse(post(1)));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await expect(wp.posts.get(id)).rejects.toThrow(TypeError);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('rejects a path traversal id passed from untyped code', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse(post(1)));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await expect(wp.posts.get('1/../../users' as unknown as number)).rejects.toThrow(TypeError);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 
@@ -124,6 +178,17 @@ describe('createWPClient', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('fetches all pages when X-WP-TotalPages is missing but X-WP-Total indicates multiple pages', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse([post(1), post(2)], { 'X-WP-Total': '3' }))
+        .mockResolvedValueOnce(jsonResponse([post(3)], { 'X-WP-Total': '3' }));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const items = await wp.posts.listAll({ per_page: 2 });
+      expect(items.map((p) => p.id)).toEqual([1, 2, 3]);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('limits concurrent page requests and preserves page order', async () => {
       const totalPages = 9;
       let active = 0;
@@ -189,6 +254,13 @@ describe('createWPClient', () => {
       expect(url.searchParams.get('orderby')).toBe('name');
     });
 
+    it('encodes special characters in the rest base', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await wp.postType('a?b#c').list();
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/wp/v2/a%3Fb%23c');
+    });
+
     it('supports custom taxonomy filter params on post type queries', async () => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
       const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
@@ -251,6 +323,28 @@ describe('createWPClient', () => {
       });
       await wp.posts.list();
       expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/custom/v1/posts');
+    });
+
+    it('keeps multi-segment namespaces intact while encoding each segment', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        namespace: 'myplugin/v1',
+      });
+      await wp.postType('events').list();
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/myplugin/v1/events');
+    });
+
+    it('encodes special characters in namespace segments', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        namespace: 'my plugin/v1',
+      });
+      await wp.posts.list();
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/my%20plugin/v1/posts');
     });
   });
 });

@@ -107,6 +107,10 @@ export class HttpClient {
       try {
         response = await this.fetchImpl(url, requestInit);
       } catch (error) {
+        // Aborted requests are intentional: rethrow immediately without retrying
+        if ((error as Error)?.name === 'AbortError' || requestInit.signal?.aborted) {
+          throw error;
+        }
         // Network-level error: retry if attempts remain
         lastError = error;
         if (attempt === attempts - 1) throw error;

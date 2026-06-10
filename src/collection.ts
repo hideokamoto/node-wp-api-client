@@ -67,7 +67,7 @@ export type WPListResult<T> = {
   items: T[];
   /** Value of the `X-WP-Total` header (falls back to `items.length`). */
   total: number;
-  /** Value of the `X-WP-TotalPages` header (falls back to `1`). */
+  /** Value of the `X-WP-TotalPages` header (falls back to `Math.ceil(total / per_page)`). */
   totalPages: number;
 };
 
@@ -109,10 +109,13 @@ export class WPCollection<
     type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
     const params = buildQuery({ ...this.defaultQuery, ...query });
     const { data, response } = await this.http.get<Item[]>(this.path, params, init);
+    const total = intHeader(response, 'X-WP-Total', data.length);
+    const parsedPerPage = Number.parseInt(params.get('per_page') ?? '10', 10);
+    const perPage = Number.isFinite(parsedPerPage) && parsedPerPage > 0 ? parsedPerPage : 10;
     return {
       items: data,
-      total: intHeader(response, 'X-WP-Total', data.length),
-      totalPages: intHeader(response, 'X-WP-TotalPages', 1),
+      total,
+      totalPages: intHeader(response, 'X-WP-TotalPages', Math.ceil(total / perPage)),
     };
   }
 
@@ -162,6 +165,9 @@ export class WPCollection<
     query?: Q,
     init?: WPRequestInit
   ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q>> {
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new TypeError(`Entity id must be a positive integer, got: ${id}`);
+    }
     type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
     const params = buildQuery({ ...this.defaultQuery, ...query });
     const { data } = await this.http.get<Item>(`${this.path}/${id}`, params, init);
