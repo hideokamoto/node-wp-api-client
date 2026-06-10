@@ -39,6 +39,13 @@ export type WPClientConfig = {
 
 type EmptyQuery = Record<never, never>;
 
+const encodePathSegments = (path: string): string =>
+  path
+    .replace(/^\/+|\/+$/g, '')
+    .split('/')
+    .map(encodeURIComponent)
+    .join('/');
+
 /**
  * GET-only client for the WordPress REST API.
  *
@@ -70,7 +77,7 @@ export class WPApiClient {
       defaultInit: config.defaultInit,
       retry: config.retry,
     });
-    this.namespace = (config.namespace ?? 'wp/v2').replace(/^\/+|\/+$/g, '');
+    this.namespace = encodePathSegments(config.namespace ?? 'wp/v2');
     this.defaultQuery = config.defaultQuery;
 
     this.posts = this.collection('posts');
@@ -121,7 +128,7 @@ export class WPApiClient {
     TEmbedView extends object = TView,
     TEmbedded extends object = Record<string, unknown>,
   >(restBase: string): WPCollection<TView, TEmbedView, TEmbedded> {
-    const normalizedBase = restBase.replace(/^\/+|\/+$/g, '');
+    const normalizedBase = encodePathSegments(restBase);
     return new WPCollection<TView, TEmbedView, TEmbedded>(
       this.http,
       `/${this.namespace}/${normalizedBase}`,
