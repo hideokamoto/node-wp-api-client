@@ -36,6 +36,12 @@
   ],
   "author": "Hidetaka Okamoto",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hideokamoto/node-wp-api-client.git"
+  },
+  "bugs": "https://github.com/hideokamoto/node-wp-api-client/issues",
+  "homepage": "https://github.com/hideokamoto/node-wp-api-client#readme",
   "engines": {
     "node": ">=20.19"
   },
