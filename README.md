@@ -136,6 +136,24 @@ try {
 }
 ```
 
+## Agent skill (Claude Code)
+
+This repo ships an [agent skill](skills/wp-api-client/SKILL.md) that teaches
+Claude Code how to use this library. Install it as a plugin:
+
+```
+/plugin marketplace add hideokamoto/node-wp-api-client
+/plugin install wp-api-client@node-wp-api-client
+```
+
+The skill is also published inside the npm package (`skills/`), so you can
+copy or symlink it into your project instead:
+
+```bash
+mkdir -p .claude/skills
+cp -r node_modules/node-wp-api-client/skills/wp-api-client .claude/skills/
+```
+
 ## Development
 
 ```bash
