@@ -56,6 +56,21 @@ describe('response type resolution', () => {
     expectTypeOf<Extract<keyof Item, 'content'>>().toEqualTypeOf<never>();
   });
 
+  it('picks _fields from the embed-context entity when combined with context: "embed"', async () => {
+    const { items } = await wp.posts.list({ context: 'embed', _fields: ['id', 'title'] });
+    type Item = (typeof items)[number];
+    expectTypeOf<keyof Item>().toEqualTypeOf<'id' | 'title'>();
+    expectTypeOf<Item['title']>().toEqualTypeOf<{ rendered: string }>();
+  });
+
+  it('adds _embedded to the embed-context entity when _embed is combined with context: "embed"', async () => {
+    const { items } = await wp.posts.list({ context: 'embed', _embed: true });
+    expectTypeOf(items[0]?._embedded).toEqualTypeOf<WPPostEmbedded | undefined>();
+    type Item = (typeof items)[number];
+    // content is not exposed in the embed context, even with _embed
+    expectTypeOf<Extract<keyof Item, 'content'>>().toEqualTypeOf<never>();
+  });
+
   it('resolves single-entity helpers the same way', async () => {
     const single = await wp.posts.get(1, { _fields: ['id', 'date'] });
     expectTypeOf<keyof typeof single>().toEqualTypeOf<'id' | 'date'>();

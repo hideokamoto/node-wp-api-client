@@ -75,6 +75,8 @@ const bySlug = await wp.posts.getBySlug('hello-world');  // null when not found
 ```
 
 `total` / `totalPages` come from the `X-WP-Total` / `X-WP-TotalPages` headers.
+`listAll` always paginates from page 1 and overrides any `page` you pass;
+`per_page` is respected (default `100`).
 
 ### Custom post types & taxonomies
 
