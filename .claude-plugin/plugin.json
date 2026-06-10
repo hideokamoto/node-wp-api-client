@@ -1,0 +1,13 @@
+{
+  "name": "wp-api-client",
+  "displayName": "node-wp-api-client",
+  "description": "Teaches Claude how to fetch WordPress content with node-wp-api-client (type-safe queries via _fields, _embed, context)",
+  "author": {
+    "name": "Hidetaka Okamoto"
+  },
+  "homepage": "https://github.com/hideokamoto/node-wp-api-client#readme",
+  "repository": "https://github.com/hideokamoto/node-wp-api-client",
+  "license": "MIT",
+  "keywords": ["wordpress", "wp-api", "rest-api", "typescript", "sdk"],
+  "skills": "./skills/"
+}
