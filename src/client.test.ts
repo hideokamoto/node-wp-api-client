@@ -530,6 +530,14 @@ describe('getLinks', () => {
   it('returns an empty array when the relation does not exist', () => {
     expect(getLinks(entity, 'author')).toEqual([]);
   });
+
+  it('returns an empty array when entity is null', () => {
+    expect(getLinks(null, 'self')).toEqual([]);
+  });
+
+  it('returns an empty array when entity has no _links', () => {
+    expect(getLinks({}, 'self')).toEqual([]);
+  });
 });
 
 describe('getFirstLink', () => {
@@ -550,5 +558,13 @@ describe('getFirstLink', () => {
 
   it('returns undefined when the relation does not exist', () => {
     expect(getFirstLink(entity, 'author')).toBeUndefined();
+  });
+
+  it('returns undefined when entity is null', () => {
+    expect(getFirstLink(null, 'self')).toBeUndefined();
+  });
+
+  it('returns undefined when entity has no _links', () => {
+    expect(getFirstLink({}, 'self')).toBeUndefined();
   });
 });

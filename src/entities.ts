@@ -32,15 +32,18 @@ export type WPLinkRelation =
   | 'curies'
   | (string & {});
 
-export function getLinks(entity: { _links: WPLinks }, relation: WPLinkRelation): WPLink[] {
-  return entity._links[relation] ?? [];
+export function getLinks(
+  entity: { _links?: WPLinks } | null | undefined,
+  relation: WPLinkRelation
+): WPLink[] {
+  return entity?._links?.[relation] ?? [];
 }
 
 export function getFirstLink(
-  entity: { _links: WPLinks },
+  entity: { _links?: WPLinks } | null | undefined,
   relation: WPLinkRelation
 ): WPLink | undefined {
-  return entity._links[relation]?.[0];
+  return entity?._links?.[relation]?.[0];
 }
 
 export type WPRoute = {
