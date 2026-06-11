@@ -19,6 +19,50 @@ export type WPLink = {
 
 export type WPLinks = Record<string, WPLink[]>;
 
+export type WPLinkRelation =
+  | 'self'
+  | 'collection'
+  | 'about'
+  | 'author'
+  | 'wp:term'
+  | 'wp:featuredmedia'
+  | 'wp:attachment'
+  | 'wp:post-type'
+  | 'up'
+  | 'curies'
+  | (string & {});
+
+export function getLinks(entity: { _links: WPLinks }, relation: WPLinkRelation): WPLink[] {
+  return entity._links[relation] ?? [];
+}
+
+export function getFirstLink(
+  entity: { _links: WPLinks },
+  relation: WPLinkRelation
+): WPLink | undefined {
+  return entity._links[relation]?.[0];
+}
+
+export type WPRoute = {
+  namespace: string;
+  methods: string[];
+  endpoints: Array<{ methods: string[]; args: Record<string, unknown> }>;
+  _links?: { self: Array<{ href: string }> };
+};
+
+export type WPRootResponse = {
+  name: string;
+  description: string;
+  url: string;
+  home: string;
+  gmt_offset: number;
+  timezone_string: string;
+  namespaces: string[];
+  authentication: Record<string, unknown>;
+  routes: Record<string, WPRoute>;
+  _links?: WPLinks;
+};
+
 export type WPPostStatus = 'publish' | 'future' | 'draft' | 'pending' | 'private' | (string & {});
 
 export type WPPost = {

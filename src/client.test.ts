@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createWPClient } from './client';
 import { WPApiError } from './errors';
+import { getFirstLink, getLinks } from './entities';
 
 type FetchMock = ReturnType<typeof vi.fn>;
 
@@ -403,6 +404,76 @@ describe('createWPClient', () => {
     });
   });
 
+  describe('discover', () => {
+    it('fetches the WP REST API root and returns namespaces and routes', async () => {
+      const rootResponse = {
+        name: 'My Site',
+        description: 'Just another WordPress site',
+        url: 'https://example.com',
+        home: 'https://example.com',
+        gmt_offset: 0,
+        timezone_string: '',
+        namespaces: ['wp/v2', 'myplugin/v1'],
+        authentication: {},
+        routes: {
+          '/wp/v2': { namespace: 'wp/v2', methods: ['GET'], endpoints: [] },
+          '/wp/v2/posts': { namespace: 'wp/v2', methods: ['GET', 'POST'], endpoints: [] },
+        },
+      };
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse(rootResponse));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+
+      const result = await wp.discover();
+
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/');
+      expect(result.namespaces).toEqual(['wp/v2', 'myplugin/v1']);
+      expect(result.routes['/wp/v2/posts']).toBeDefined();
+    });
+
+    it('works when baseUrl already includes /wp-json', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(jsonResponse({ namespaces: ['wp/v2'], routes: {}, authentication: {} }));
+      const wp = createWPClient({
+        baseUrl: 'https://example.com/wp-json',
+        fetch: fetchMock,
+      });
+
+      await wp.discover();
+
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/');
+    });
+  });
+
+  describe('fetchLink', () => {
+    it('fetches the absolute href from a WPLink', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 1, slug: 'hello' }));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+
+      const link = { href: 'https://example.com/wp-json/wp/v2/posts/1' };
+      const result = await wp.fetchLink<{ id: number; slug: string }>(link);
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/wp-json/wp/v2/posts/1',
+        expect.anything()
+      );
+      expect(result.id).toBe(1);
+    });
+
+    it('can follow a link to a resource on a different origin', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 5 }));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+
+      const link = { href: 'https://cdn.example.org/wp-json/wp/v2/media/5' };
+      await wp.fetchLink(link);
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://cdn.example.org/wp-json/wp/v2/media/5',
+        expect.anything()
+      );
+    });
+  });
+
   describe('namespace', () => {
     it('supports a custom REST namespace', async () => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
@@ -436,5 +507,48 @@ describe('createWPClient', () => {
       await wp.posts.list();
       expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/my%20plugin/v1/posts');
     });
+  });
+});
+
+describe('getLinks', () => {
+  const entity = {
+    _links: {
+      self: [{ href: 'https://example.com/wp-json/wp/v2/posts/1' }],
+      'wp:term': [
+        { href: 'https://example.com/wp-json/wp/v2/categories?post=1', embeddable: true },
+        { href: 'https://example.com/wp-json/wp/v2/tags?post=1', embeddable: true },
+      ],
+    },
+  };
+
+  it('returns all links for the given relation', () => {
+    const links = getLinks(entity, 'wp:term');
+    expect(links).toHaveLength(2);
+    expect(links[0]?.href).toContain('categories');
+  });
+
+  it('returns an empty array when the relation does not exist', () => {
+    expect(getLinks(entity, 'author')).toEqual([]);
+  });
+});
+
+describe('getFirstLink', () => {
+  const entity = {
+    _links: {
+      self: [{ href: 'https://example.com/wp-json/wp/v2/posts/1' }],
+      'wp:term': [
+        { href: 'https://example.com/wp-json/wp/v2/categories?post=1', embeddable: true },
+        { href: 'https://example.com/wp-json/wp/v2/tags?post=1', embeddable: true },
+      ],
+    },
+  };
+
+  it('returns the first link for the given relation', () => {
+    const link = getFirstLink(entity, 'self');
+    expect(link?.href).toBe('https://example.com/wp-json/wp/v2/posts/1');
+  });
+
+  it('returns undefined when the relation does not exist', () => {
+    expect(getFirstLink(entity, 'author')).toBeUndefined();
   });
 });

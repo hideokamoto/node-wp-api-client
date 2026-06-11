@@ -196,6 +196,71 @@ describe('HttpClient', () => {
     });
   });
 
+  describe('fetchAbsolute', () => {
+    it('fetches the given absolute URL without prepending baseUrl', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }));
+      const http = new HttpClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await http.fetchAbsolute('https://other.example.com/wp-json/wp/v2/posts/1');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://other.example.com/wp-json/wp/v2/posts/1',
+        expect.anything()
+      );
+    });
+
+    it('returns the parsed JSON data', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 42, slug: 'hello' }));
+      const http = new HttpClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const data = await http.fetchAbsolute<{ id: number; slug: string }>(
+        'https://example.com/wp-json/wp/v2/posts/42'
+      );
+      expect(data).toEqual({ id: 42, slug: 'hello' });
+    });
+
+    it('retries retryable status codes', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response('', { status: 503 }))
+        .mockResolvedValueOnce(jsonResponse({ id: 1 }));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { backoffMs: 0 },
+      });
+      const data = await http.fetchAbsolute('https://example.com/wp-json/wp/v2/posts/1');
+      expect(data).toEqual({ id: 1 });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry when retry is disabled', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 503 }));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: false,
+      });
+      await expect(
+        http.fetchAbsolute('https://example.com/wp-json/wp/v2/posts/1')
+      ).rejects.toBeInstanceOf(WPApiError);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry on AbortError', async () => {
+      const abortError = new DOMException('The operation was aborted.', 'AbortError');
+      const fetchMock = vi.fn().mockRejectedValue(abortError);
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { attempts: 3, backoffMs: 1000 },
+      });
+      const start = Date.now();
+      await expect(
+        http.fetchAbsolute('https://example.com/wp-json/wp/v2/posts/1')
+      ).rejects.toBe(abortError);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(Date.now() - start).toBeLessThan(500);
+    });
+  });
+
   describe('request init', () => {
     it('passes per-request init (e.g. Next.js revalidate) to fetch', async () => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
