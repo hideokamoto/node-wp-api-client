@@ -32,6 +32,14 @@ export type WPLinkRelation =
   | 'curies'
   | (string & {});
 
+/**
+ * Returns all links for the given relation from an entity's `_links` object.
+ * Returns an empty array when the relation is absent or `entity` is nullish.
+ *
+ * ```ts
+ * const termLinks = getLinks(post, 'wp:term');
+ * ```
+ */
 export function getLinks(
   entity: { _links?: WPLinks } | null | undefined,
   relation: WPLinkRelation
@@ -39,6 +47,17 @@ export function getLinks(
   return entity?._links?.[relation] ?? [];
 }
 
+/**
+ * Returns the first link for the given relation from an entity's `_links` object,
+ * or `undefined` when the relation is absent or `entity` is nullish.
+ *
+ * ```ts
+ * const selfLink = getFirstLink(post, 'self');
+ * if (selfLink) {
+ *   const same = await wp.fetchLink<WPPost>(selfLink);
+ * }
+ * ```
+ */
 export function getFirstLink(
   entity: { _links?: WPLinks } | null | undefined,
   relation: WPLinkRelation
