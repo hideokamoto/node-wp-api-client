@@ -1,11 +1,15 @@
 import { WPCollection, type WPListQuery, type WPListResult } from './collection';
 import type {
+  MapEditContextFields,
   WPCategory,
   WPMedia,
+  WPMediaEditContext,
   WPMediaEmbedContext,
   WPPage,
+  WPPageEditContext,
   WPPageEmbedContext,
   WPPost,
+  WPPostEditContext,
   WPPostEmbedContext,
   WPPostEmbedded,
   WPSearchResult,
@@ -13,6 +17,7 @@ import type {
   WPTermEmbedContext,
   WPTermEmbedded,
   WPUser,
+  WPUserEditContext,
   WPUserEmbedContext,
 } from './entities';
 import { type FetchLike, HttpClient, type RetryConfig, type WPRequestInit } from './http';
@@ -58,12 +63,17 @@ const encodePathSegments = (path: string): string =>
  * ```
  */
 export class WPApiClient {
-  readonly posts: WPCollection<WPPost, WPPostEmbedContext, WPPostEmbedded>;
-  readonly pages: WPCollection<WPPage, WPPageEmbedContext, WPPostEmbedded>;
+  readonly posts: WPCollection<WPPost, WPPostEmbedContext, WPPostEmbedded, WPPostEditContext>;
+  readonly pages: WPCollection<WPPage, WPPageEmbedContext, WPPostEmbedded, WPPageEditContext>;
   readonly categories: WPCollection<WPCategory, WPTermEmbedContext, WPTermEmbedded>;
   readonly tags: WPCollection<WPTag, WPTermEmbedContext, WPTermEmbedded>;
-  readonly media: WPCollection<WPMedia, WPMediaEmbedContext, WPPostEmbedded>;
-  readonly users: WPCollection<WPUser, WPUserEmbedContext, Record<string, unknown>>;
+  readonly media: WPCollection<WPMedia, WPMediaEmbedContext, WPPostEmbedded, WPMediaEditContext>;
+  readonly users: WPCollection<
+    WPUser,
+    WPUserEmbedContext,
+    Record<string, unknown>,
+    WPUserEditContext
+  >;
 
   private readonly http: HttpClient;
   private readonly namespace: string;
@@ -118,7 +128,9 @@ export class WPApiClient {
     query?: Q,
     init?: WPRequestInit
   ): Promise<
-    WPListResult<ResolveEntity<WPSearchResult, WPSearchResult, Record<string, unknown>, Q>>
+    WPListResult<
+      ResolveEntity<WPSearchResult, WPSearchResult, Record<string, unknown>, WPSearchResult, Q>
+    >
   > {
     return this.searchCollection.list(query, init);
   }
@@ -127,9 +139,10 @@ export class WPApiClient {
     TView extends object,
     TEmbedView extends object = TView,
     TEmbedded extends object = Record<string, unknown>,
-  >(restBase: string): WPCollection<TView, TEmbedView, TEmbedded> {
+    TEditView extends object = MapEditContextFields<TView>,
+  >(restBase: string): WPCollection<TView, TEmbedView, TEmbedded, TEditView> {
     const normalizedBase = encodePathSegments(restBase);
-    return new WPCollection<TView, TEmbedView, TEmbedded>(
+    return new WPCollection<TView, TEmbedView, TEmbedded, TEditView>(
       this.http,
       `/${this.namespace}/${normalizedBase}`,
       this.defaultQuery

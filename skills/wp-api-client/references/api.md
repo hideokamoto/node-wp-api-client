@@ -53,10 +53,11 @@ response shape, plus arbitrary pass-through keys:
 ## Type-level resolution
 
 ```ts
-type ResolveEntity<TView, TEmbedView, TEmbedded, Q>
+type ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>
 ```
 
 Applies, in order: `Q extends { context: 'embed' }` → `TEmbedView`;
+`Q extends { context: 'edit' }` → `TEditView`;
 `Q extends { _embed: ... }` → intersect `{ _embedded: TEmbedded }`;
 `Q extends { _fields: [...] }` → `Pick` of the top-level field heads
 (`'_links.wp:term'` → `'_links'`).
@@ -85,8 +86,22 @@ Applies, in order: `Q extends { context: 'embed' }` → `TEmbedView`;
   (`'post' | 'term' | 'post-format'` + open), `subtype`, `_links`
 
 Building blocks: `WPRendered` (`{ rendered: string }`), `WPRenderedContent`
-(adds `protected?`), `WPLink`, `WPLinks`, `WPPostStatus`, `WPMediaSize`,
-`WPMediaDetails`.
+(adds `protected?`), `WPEditRendered` (`{ raw, rendered }`),
+`WPEditRenderedContent` (adds `protected?`), `MapEditContextFields<T>`
+(maps view rendered fields to edit counterparts), `WPLink`, `WPLinks`,
+`WPPostStatus`, `WPMediaSize`, `WPMediaDetails`.
+
+## Edit-context entities (returned for `context: 'edit'`)
+
+`WPPostEditContext`, `WPPageEditContext`, `WPMediaEditContext` —
+`MapEditContextFields` of the full entities (adds `raw` to `title`,
+`content`, `excerpt`, `guid`, and media `description` / `caption`).
+
+`WPUserEditContext` — `WPUser` plus `username`, `email`,
+`registered_date`, `roles`, `capabilities`, `extra_capabilities`.
+
+Custom post types default to `MapEditContextFields<T>` for the edit
+context (see Collection generics below).
 
 ## Embed-context entities (returned for `context: 'embed'`)
 
@@ -112,8 +127,12 @@ Used by posts/pages/media (`WPPostEmbedded`) and categories/tags
 
 ## Collection generics
 
+`WPCollection<TView, TEmbedView, TEmbedded, TEditView>` — `TEditView`
+defaults to `MapEditContextFields<TView>`.
+
 `wp.postType<T>(restBase)` → `WPCollection<T, T, WPPostEmbedded>` —
-note `context: 'embed'` does not reduce custom types (TEmbedView = T).
+note `context: 'embed'` does not reduce custom types (TEmbedView = T);
+`context: 'edit'` maps rendered fields via `MapEditContextFields<T>`.
 `wp.taxonomy<T>(restBase)` → `WPCollection<T, T, WPTermEmbedded>`.
 
 ## Behavior notes

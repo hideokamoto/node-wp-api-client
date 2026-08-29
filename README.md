@@ -114,8 +114,9 @@ const { items } = await wp.search({ search: 'stripe', type: 'post', subtype: 'st
 `ResolveEntity` applies the same transformations the server does, in order:
 
 1. `context: 'embed'` → switches to the reduced embed-context entity
-2. `_embed` → intersects `{ _embedded: ... }` into the entity
-3. `_fields` → `Pick`s the listed top-level fields (nested paths such as
+2. `context: 'edit'` → switches to the edit-context entity (`raw` on rendered fields)
+3. `_embed` → intersects `{ _embedded: ... }` into the entity
+4. `_fields` → `Pick`s the listed top-level fields (nested paths such as
    `_links.wp:term` select their top-level key)
 
 `_fields` entries are validated against the entity, so typos are caught at

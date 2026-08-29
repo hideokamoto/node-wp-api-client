@@ -1,3 +1,4 @@
+import type { MapEditContextFields } from './entities';
 import type { HttpClient, WPRequestInit } from './http';
 import { buildQuery, type WPQueryValue } from './query';
 import type { ResolveEntity, WPContext, WPEmbedOption, WPFieldSelector } from './response-types';
@@ -94,6 +95,7 @@ export class WPCollection<
   TView extends object,
   TEmbedView extends object = TView,
   TEmbedded extends object = Record<string, unknown>,
+  TEditView extends object = MapEditContextFields<TView>,
 > {
   constructor(
     private readonly http: HttpClient,
@@ -105,8 +107,8 @@ export class WPCollection<
   async list<const Q extends WPListQuery<TView> = EmptyQuery>(
     query?: Q,
     init?: WPRequestInit
-  ): Promise<WPListResult<ResolveEntity<TView, TEmbedView, TEmbedded, Q>>> {
-    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
+  ): Promise<WPListResult<ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>>> {
+    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>;
     const params = buildQuery({ ...this.defaultQuery, ...query });
     const { data, response } = await this.http.get<Item[]>(this.path, params, init);
     const total = intHeader(response, 'X-WP-Total', data.length);
@@ -127,8 +129,8 @@ export class WPCollection<
   async listAll<const Q extends WPListQuery<TView> = EmptyQuery>(
     query?: Q,
     init?: WPRequestInit
-  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q>[]> {
-    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
+  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>[]> {
+    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>;
     const perPage =
       (query as { per_page?: number } | undefined)?.per_page ?? DEFAULT_LIST_ALL_PER_PAGE;
     const pageQuery = (page: number) =>
@@ -164,11 +166,11 @@ export class WPCollection<
     id: number,
     query?: Q,
     init?: WPRequestInit
-  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q>> {
+  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>> {
     if (!Number.isSafeInteger(id) || id <= 0) {
       throw new TypeError(`Entity id must be a positive integer, got: ${id}`);
     }
-    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
+    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>;
     const params = buildQuery({ ...this.defaultQuery, ...query });
     const { data } = await this.http.get<Item>(`${this.path}/${id}`, params, init);
     return data;
@@ -179,8 +181,8 @@ export class WPCollection<
     slug: string,
     query?: Q,
     init?: WPRequestInit
-  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q> | null> {
-    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
+  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q> | null> {
+    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>;
     const { items } = await this.list({ ...query, slug, per_page: 1 } as WPListQuery<TView>, init);
     return (items[0] as Item | undefined) ?? null;
   }

@@ -71,9 +71,9 @@ describe('createWPClient', () => {
     });
 
     it('derives totalPages from total and per_page when X-WP-TotalPages is missing', async () => {
-      const fetchMock = vi.fn().mockResolvedValue(
-        jsonResponse([post(1), post(2)], { 'X-WP-Total': '5' })
-      );
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(jsonResponse([post(1), post(2)], { 'X-WP-Total': '5' }));
       const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
       const result = await wp.posts.list({ per_page: 2 });
       expect(result.total).toBe(5);
@@ -81,9 +81,9 @@ describe('createWPClient', () => {
     });
 
     it('uses defaultQuery.per_page to derive totalPages when X-WP-TotalPages is missing', async () => {
-      const fetchMock = vi.fn().mockResolvedValue(
-        jsonResponse([post(1), post(2)], { 'X-WP-Total': '5' })
-      );
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(jsonResponse([post(1), post(2)], { 'X-WP-Total': '5' }));
       const wp = createWPClient({
         baseUrl: 'https://example.com',
         fetch: fetchMock,

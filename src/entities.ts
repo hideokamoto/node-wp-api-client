@@ -11,6 +11,31 @@ export type WPRenderedContent = {
   protected?: boolean;
 };
 
+/** Rendered field shape returned when `context=edit` is requested. */
+export type WPEditRendered = {
+  raw: string;
+  rendered: string;
+};
+
+/** Content/excerpt field shape returned when `context=edit` is requested. */
+export type WPEditRenderedContent = {
+  raw: string;
+  rendered: string;
+  protected?: boolean;
+};
+
+/**
+ * Maps view-context rendered fields to their edit-context counterparts.
+ * Useful for custom post types that extend `WPPost`-like shapes.
+ */
+export type MapEditContextFields<T> = {
+  [K in keyof T]: T[K] extends WPRenderedContent
+    ? WPEditRenderedContent
+    : T[K] extends WPRendered
+      ? WPEditRendered
+      : T[K];
+};
+
 export type WPLink = {
   href: string;
   embeddable?: boolean;
@@ -223,6 +248,22 @@ export type WPUserEmbedContext = Pick<
   WPUser,
   'id' | 'name' | 'url' | 'description' | 'link' | 'slug' | 'avatar_urls' | '_links'
 >;
+
+/**
+ * Entity shapes returned when `context=edit` is requested.
+ */
+export type WPPostEditContext = MapEditContextFields<WPPost>;
+export type WPPageEditContext = MapEditContextFields<WPPage>;
+export type WPMediaEditContext = MapEditContextFields<WPMedia>;
+
+export type WPUserEditContext = WPUser & {
+  username: string;
+  email: string;
+  registered_date: string;
+  roles: string[];
+  capabilities: Record<string, boolean>;
+  extra_capabilities: Record<string, boolean>;
+};
 
 /**
  * `_embedded` payload shapes added when `_embed` is requested.
