@@ -8,7 +8,7 @@ All symbols are exported from the package root (`node-wp-api-client`).
 | --- | --- | --- |
 | `createWPClient(config)` | function | Creates a `WPApiClient` (preferred entry point) |
 | `WPApiClient` | class | The client; holds collections and `postType` / `taxonomy` / `search` |
-| `WPCollection<TView, TEmbedView, TEmbedded>` | class | One REST collection; `list` / `listAll` / `get` / `getBySlug` |
+| `WPCollection<TView, TEmbedView, TEmbedded, TEditView>` | class | One REST collection; `list` / `listAll` / `get` / `getBySlug` (`TEditView` defaults to `MapEditContextFields<TView>`) |
 | `WPApiError` | class | Thrown on non-OK responses; `status`, `code?`, `data?` |
 | `buildQuery(query)` | function | Serializes a query object to `URLSearchParams` (WP conventions) |
 
@@ -103,9 +103,12 @@ Building blocks: `WPRendered` (`{ rendered: string }`), `WPRenderedContent`
 
 ## Edit-context entities (returned for `context: 'edit'`)
 
-`WPPostEditContext`, `WPPageEditContext`, `WPMediaEditContext` —
-`MapEditContextFields` of the full entities (adds `raw` to `title`,
-`content`, `excerpt`, `guid`, and media `description` / `caption`).
+`WPPostEditContext`, `WPPageEditContext` — `MapEditContextFields` of the full
+entities with `content: WPEditPostContent` (`block_version`), plus
+`permalink_template` and `generated_slug`.
+
+`WPMediaEditContext` — `MapEditContextFields<WPMedia>` plus `filename`,
+`filesize`, and `missing_image_sizes`.
 
 `WPUserEditContext` — `WPUser` plus `username`, `email`,
 `registered_date`, `roles`, `capabilities`, `extra_capabilities`, `locale`,

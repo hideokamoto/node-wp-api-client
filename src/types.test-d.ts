@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest';
 import { createWPClient } from './client';
-import type { WPCategory, WPEditRenderedContent, WPPost, WPPostEmbedded } from './entities';
+import type { WPCategory, WPEditPostContent, WPPost, WPPostEmbedded } from './entities';
 
 const wp = createWPClient({ baseUrl: 'https://example.com' });
 
@@ -58,7 +58,7 @@ describe('response type resolution', () => {
 
   it('exposes raw content fields with context: "edit"', async () => {
     const post = await wp.posts.get(1, { context: 'edit' });
-    expectTypeOf(post.content).toEqualTypeOf<WPEditRenderedContent>();
+    expectTypeOf(post.content).toEqualTypeOf<WPEditPostContent>();
     expectTypeOf(post.content.raw).toEqualTypeOf<string>();
     expectTypeOf(post.title.raw).toEqualTypeOf<string>();
     expectTypeOf(post.guid.raw).toEqualTypeOf<string>();
@@ -83,14 +83,14 @@ describe('response type resolution', () => {
     const { items } = await wp.posts.list({ context: 'edit', _fields: ['id', 'content'] });
     type Item = (typeof items)[number];
     expectTypeOf<keyof Item>().toEqualTypeOf<'id' | 'content'>();
-    expectTypeOf<Item['content']>().toEqualTypeOf<WPEditRenderedContent>();
+    expectTypeOf<Item['content']>().toEqualTypeOf<WPEditPostContent>();
   });
 
   it('adds _embedded to the edit-context entity when _embed is combined with context: "edit"', async () => {
     const { items } = await wp.posts.list({ context: 'edit', _embed: true });
     expectTypeOf(items[0]?._embedded).toEqualTypeOf<WPPostEmbedded | undefined>();
     type Item = (typeof items)[number];
-    expectTypeOf<Item['content']>().toEqualTypeOf<WPEditRenderedContent>();
+    expectTypeOf<Item['content']>().toEqualTypeOf<WPEditPostContent>();
   });
 
   it('infers edit context for custom post types', async () => {
@@ -105,6 +105,29 @@ describe('response type resolution', () => {
     const user = await wp.users.get(1, { context: 'edit' });
     expectTypeOf(user.email).toEqualTypeOf<string>();
     expectTypeOf(user.roles).toEqualTypeOf<string[]>();
+  });
+
+  it('validates edit-only _fields on posts, pages, and media', async () => {
+    const post = await wp.posts.get(1, {
+      context: 'edit',
+      _fields: ['id', 'permalink_template', 'generated_slug', 'content'],
+    });
+    expectTypeOf(post.permalink_template).toEqualTypeOf<string>();
+    expectTypeOf(post.generated_slug).toEqualTypeOf<string>();
+    expectTypeOf(post.content.block_version).toEqualTypeOf<number>();
+
+    const page = await wp.pages.get(1, { context: 'edit', _fields: ['permalink_template'] });
+    expectTypeOf(page.permalink_template).toEqualTypeOf<string>();
+
+    const media = await wp.media.get(1, {
+      context: 'edit',
+      _fields: ['filename', 'filesize', 'missing_image_sizes'],
+    });
+    expectTypeOf(media.filename).toEqualTypeOf<string>();
+    expectTypeOf(media.filesize).toEqualTypeOf<number>();
+    expectTypeOf(media.missing_image_sizes).toEqualTypeOf<string[]>();
+    // @ts-expect-error -- permalink_template is not on media
+    await wp.media.get(1, { context: 'edit', _fields: ['permalink_template'] });
   });
 
   it('validates _fields against the edit-context entity when context: "edit"', async () => {

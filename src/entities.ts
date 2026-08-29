@@ -24,6 +24,11 @@ export type WPEditRenderedContent = {
   protected?: boolean;
 };
 
+/** Content field shape returned when `context=edit` is requested on posts/pages. */
+export type WPEditPostContent = WPEditRenderedContent & {
+  block_version: number;
+};
+
 /**
  * Maps view-context rendered fields to their edit-context counterparts.
  * Useful for custom post types that extend `WPPost`-like shapes.
@@ -255,9 +260,23 @@ export type WPUserEmbedContext = Pick<
 /**
  * Entity shapes returned when `context=edit` is requested.
  */
-export type WPPostEditContext = MapEditContextFields<WPPost>;
-export type WPPageEditContext = MapEditContextFields<WPPage>;
-export type WPMediaEditContext = MapEditContextFields<WPMedia>;
+export type WPPostEditContext = Omit<MapEditContextFields<WPPost>, 'content'> & {
+  content: WPEditPostContent;
+  permalink_template: string;
+  generated_slug: string;
+};
+
+export type WPPageEditContext = Omit<MapEditContextFields<WPPage>, 'content'> & {
+  content: WPEditPostContent;
+  permalink_template: string;
+  generated_slug: string;
+};
+
+export type WPMediaEditContext = MapEditContextFields<WPMedia> & {
+  filename: string;
+  filesize: number;
+  missing_image_sizes: string[];
+};
 
 /**
  * User entity in edit context. Includes the most common edit-only fields
