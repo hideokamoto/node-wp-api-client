@@ -31,15 +31,25 @@ type WPClientConfig = {
 response shape, plus arbitrary pass-through keys:
 
 ```ts
+// view / embed (default) — _fields validated against TView
 {
-  context?: 'view' | 'embed' | 'edit';
+  context?: 'view' | 'embed';
   _embed?: boolean | string | readonly string[];
-  _fields?: readonly WPFieldSelector<T>[];   // validated against T
+  _fields?: readonly WPFieldSelector<TView>[];
+  password?: string;
+} & Record<string, WPQueryValue>
+
+// edit — _fields validated against TEditView
+{
+  context: 'edit';
+  _embed?: boolean | string | readonly string[];
+  _fields?: readonly WPFieldSelector<TEditView>[];
   password?: string;
 } & Record<string, WPQueryValue>
 ```
 
-`WPListQuery<T>` (for `list` / `listAll`) extends it with:
+`WPListQuery<TView, TEditView>` (for `list` / `listAll`) extends the same
+discriminated union with:
 `page`, `per_page`, `offset`, `search`, `order` (`'asc' | 'desc'`), `orderby`,
 `include`, `exclude`, `slug`, `after`, `before`, `modified_after`,
 `modified_before` (Date or string), `author`, `parent`, `categories`, `tags`,
@@ -98,10 +108,13 @@ Building blocks: `WPRendered` (`{ rendered: string }`), `WPRenderedContent`
 `content`, `excerpt`, `guid`, and media `description` / `caption`).
 
 `WPUserEditContext` — `WPUser` plus `username`, `email`,
-`registered_date`, `roles`, `capabilities`, `extra_capabilities`.
+`registered_date`, `roles`, `capabilities`, `extra_capabilities`, `locale`,
+`nickname`, `first_name`, `last_name` (representative edit-only fields; the
+full WP schema may include more).
 
 Custom post types default to `MapEditContextFields<T>` for the edit
-context (see Collection generics below).
+context (see Collection generics below). Only top-level `WPRendered` /
+`WPRenderedContent` keys are mapped — nested rendered fields are not.
 
 ## Embed-context entities (returned for `context: 'embed'`)
 

@@ -120,7 +120,13 @@ const { items } = await wp.search({ search: 'stripe', type: 'post', subtype: 'st
    `_links.wp:term` select their top-level key)
 
 `_fields` entries are validated against the entity, so typos are caught at
-compile time, and known field names are suggested by your editor.
+compile time, and known field names are suggested by your editor. When
+`context: 'edit'` is set, `_fields` is validated against the edit-context
+entity (e.g. `email` on users).
+
+`MapEditContextFields` only maps top-level `WPRendered` / `WPRenderedContent`
+keys; nested rendered fields inside custom objects are not transformed
+automatically.
 
 ## Error handling
 

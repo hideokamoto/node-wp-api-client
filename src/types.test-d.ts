@@ -61,6 +61,22 @@ describe('response type resolution', () => {
     expectTypeOf(post.content).toEqualTypeOf<WPEditRenderedContent>();
     expectTypeOf(post.content.raw).toEqualTypeOf<string>();
     expectTypeOf(post.title.raw).toEqualTypeOf<string>();
+    expectTypeOf(post.guid.raw).toEqualTypeOf<string>();
+  });
+
+  it('does not expose raw fields without context: "edit"', async () => {
+    const post = await wp.posts.get(1);
+    expectTypeOf<Extract<keyof typeof post.content, 'raw'>>().toEqualTypeOf<never>();
+  });
+
+  it('exposes raw fields on pages and media with context: "edit"', async () => {
+    const page = await wp.pages.get(1, { context: 'edit' });
+    expectTypeOf(page.content.raw).toEqualTypeOf<string>();
+
+    const media = await wp.media.get(1, { context: 'edit' });
+    expectTypeOf(media.title.raw).toEqualTypeOf<string>();
+    expectTypeOf(media.description.raw).toEqualTypeOf<string>();
+    expectTypeOf(media.caption.raw).toEqualTypeOf<string>();
   });
 
   it('picks edit-context fields with context: "edit" and _fields', async () => {
@@ -89,6 +105,14 @@ describe('response type resolution', () => {
     const user = await wp.users.get(1, { context: 'edit' });
     expectTypeOf(user.email).toEqualTypeOf<string>();
     expectTypeOf(user.roles).toEqualTypeOf<string[]>();
+  });
+
+  it('validates _fields against the edit-context entity when context: "edit"', async () => {
+    const user = await wp.users.get(1, { context: 'edit', _fields: ['id', 'email'] });
+    expectTypeOf<keyof typeof user>().toEqualTypeOf<'id' | 'email'>();
+    expectTypeOf(user.email).toEqualTypeOf<string>();
+    // @ts-expect-error -- email is not a view-context field
+    await wp.users.get(1, { _fields: ['email'] });
   });
 
   it('picks _fields from the embed-context entity when combined with context: "embed"', async () => {

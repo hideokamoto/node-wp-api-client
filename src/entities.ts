@@ -27,6 +27,9 @@ export type WPEditRenderedContent = {
 /**
  * Maps view-context rendered fields to their edit-context counterparts.
  * Useful for custom post types that extend `WPPost`-like shapes.
+ *
+ * Only top-level keys whose type is `WPRendered` or `WPRenderedContent` are
+ * transformed — nested rendered fields (e.g. inside ACF objects) are not.
  */
 export type MapEditContextFields<T> = {
   [K in keyof T]: T[K] extends WPRenderedContent
@@ -256,6 +259,11 @@ export type WPPostEditContext = MapEditContextFields<WPPost>;
 export type WPPageEditContext = MapEditContextFields<WPPage>;
 export type WPMediaEditContext = MapEditContextFields<WPMedia>;
 
+/**
+ * User entity in edit context. Includes the most common edit-only fields
+ * exposed by the WP REST API; the full schema may include additional keys
+ * (e.g. plugin meta) not listed here.
+ */
 export type WPUserEditContext = WPUser & {
   username: string;
   email: string;
@@ -263,6 +271,10 @@ export type WPUserEditContext = WPUser & {
   roles: string[];
   capabilities: Record<string, boolean>;
   extra_capabilities: Record<string, boolean>;
+  locale: string;
+  nickname: string;
+  first_name: string;
+  last_name: string;
 };
 
 /**
