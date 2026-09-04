@@ -1,3 +1,4 @@
+import type { MapEditContextFields } from './entities';
 import type { HttpClient, WPRequestInit } from './http';
 import { buildQuery, type WPQueryValue } from './query';
 import type { ResolveEntity, WPContext, WPEmbedOption, WPFieldSelector } from './response-types';
@@ -25,13 +26,24 @@ type OrderBy =
 /**
  * Query parameters shared by single-entity requests. These are the
  * parameters that change the response *shape* (see `ResolveEntity`).
+ *
+ * When `context: 'edit'` is set, `_fields` is validated against `TEditView`
+ * so edit-only keys (e.g. `email` on users) are accepted.
  */
-export type WPSingleQuery<T> = {
-  context?: WPContext;
+type WPSingleQueryCommon = {
   _embed?: WPEmbedOption;
-  _fields?: readonly WPFieldSelector<T>[];
   password?: string;
 } & Record<string, WPQueryValue>;
+
+export type WPSingleQuery<TView, TEditView = TView> =
+  | (WPSingleQueryCommon & {
+      context?: Exclude<WPContext, 'edit'>;
+      _fields?: readonly WPFieldSelector<TView>[];
+    })
+  | (WPSingleQueryCommon & {
+      context: 'edit';
+      _fields?: readonly WPFieldSelector<TEditView>[];
+    });
 
 /**
  * Query parameters for collection (list) requests. Unknown keys are allowed
@@ -39,7 +51,7 @@ export type WPSingleQuery<T> = {
  * (e.g. `{ 'stripe-categories': 12 }`) or plugin parameters
  * (e.g. `{ 'filter[lang]': 'ja' }`) work without extra ceremony.
  */
-export type WPListQuery<T> = WPSingleQuery<T> & {
+export type WPListQuery<TView, TEditView = TView> = WPSingleQuery<TView, TEditView> & {
   page?: number;
   per_page?: number;
   offset?: number;
@@ -94,6 +106,7 @@ export class WPCollection<
   TView extends object,
   TEmbedView extends object = TView,
   TEmbedded extends object = Record<string, unknown>,
+  TEditView extends object = MapEditContextFields<TView>,
 > {
   constructor(
     private readonly http: HttpClient,
@@ -102,11 +115,11 @@ export class WPCollection<
   ) {}
 
   /** Lists entities with pagination info from the `X-WP-Total*` headers. */
-  async list<const Q extends WPListQuery<TView> = EmptyQuery>(
+  async list<const Q extends WPListQuery<TView, TEditView> = EmptyQuery>(
     query?: Q,
     init?: WPRequestInit
-  ): Promise<WPListResult<ResolveEntity<TView, TEmbedView, TEmbedded, Q>>> {
-    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
+  ): Promise<WPListResult<ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>>> {
+    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>;
     const params = buildQuery({ ...this.defaultQuery, ...query });
     const { data, response } = await this.http.get<Item[]>(this.path, params, init);
     const total = intHeader(response, 'X-WP-Total', data.length);
@@ -124,17 +137,17 @@ export class WPCollection<
    * The first page determines the total page count; remaining pages are
    * fetched in parallel.
    */
-  async listAll<const Q extends WPListQuery<TView> = EmptyQuery>(
+  async listAll<const Q extends WPListQuery<TView, TEditView> = EmptyQuery>(
     query?: Q,
     init?: WPRequestInit
-  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q>[]> {
-    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
+  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>[]> {
+    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>;
     const perPage =
       (query as { per_page?: number } | undefined)?.per_page ??
       (typeof this.defaultQuery?.per_page === 'number' ? this.defaultQuery.per_page : undefined) ??
       DEFAULT_LIST_ALL_PER_PAGE;
     const pageQuery = (page: number) =>
-      ({ ...query, per_page: perPage, page }) as WPListQuery<TView>;
+      ({ ...query, per_page: perPage, page }) as WPListQuery<TView, TEditView>;
 
     const firstPage = await this.list(pageQuery(1), init);
     const items = [...firstPage.items] as Item[];
@@ -162,28 +175,31 @@ export class WPCollection<
   }
 
   /** Retrieves a single entity by ID. Throws `WPApiError` when not found. */
-  async get<const Q extends WPSingleQuery<TView> = EmptyQuery>(
+  async get<const Q extends WPSingleQuery<TView, TEditView> = EmptyQuery>(
     id: number,
     query?: Q,
     init?: WPRequestInit
-  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q>> {
+  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>> {
     if (!Number.isSafeInteger(id) || id <= 0) {
       throw new TypeError(`Entity id must be a positive integer, got: ${id}`);
     }
-    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
+    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>;
     const params = buildQuery({ ...this.defaultQuery, ...query });
     const { data } = await this.http.get<Item>(`${this.path}/${id}`, params, init);
     return data;
   }
 
   /** Finds a single entity by slug. Returns `null` when nothing matches. */
-  async getBySlug<const Q extends WPSingleQuery<TView> = EmptyQuery>(
+  async getBySlug<const Q extends WPSingleQuery<TView, TEditView> = EmptyQuery>(
     slug: string,
     query?: Q,
     init?: WPRequestInit
-  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q> | null> {
-    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
-    const { items } = await this.list({ ...query, slug, per_page: 1 } as WPListQuery<TView>, init);
+  ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q> | null> {
+    type Item = ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>;
+    const { items } = await this.list(
+      { ...query, slug, per_page: 1 } as WPListQuery<TView, TEditView>,
+      init
+    );
     return (items[0] as Item | undefined) ?? null;
   }
 }

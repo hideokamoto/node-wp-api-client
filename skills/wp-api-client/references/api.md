@@ -8,7 +8,7 @@ All symbols are exported from the package root (`node-wp-api-client`).
 | --- | --- | --- |
 | `createWPClient(config)` | function | Creates a `WPApiClient` (preferred entry point) |
 | `WPApiClient` | class | The client; holds collections and `postType` / `taxonomy` / `search` / `discover` / `fetchLink` |
-| `WPCollection<TView, TEmbedView, TEmbedded>` | class | One REST collection; `list` / `listAll` / `get` / `getBySlug` |
+| `WPCollection<TView, TEmbedView, TEmbedded, TEditView>` | class | One REST collection; `list` / `listAll` / `get` / `getBySlug` (`TEditView` defaults to `MapEditContextFields<TView>`) |
 | `WPApiError` | class | Thrown on non-OK responses; `status`, `code?`, `data?` |
 | `buildQuery(query)` | function | Serializes a query object to `URLSearchParams` (WP conventions) |
 | `getLinks(entity, relation)` | function | Returns `WPLink[]` for a relation from an entity's `_links` (empty array if absent) |
@@ -69,15 +69,25 @@ type WPClientConfig = {
 response shape, plus arbitrary pass-through keys:
 
 ```ts
+// view / embed (default) — _fields validated against TView
 {
-  context?: 'view' | 'embed' | 'edit';
+  context?: 'view' | 'embed';
   _embed?: boolean | string | readonly string[];
-  _fields?: readonly WPFieldSelector<T>[];   // validated against T
+  _fields?: readonly WPFieldSelector<TView>[];
+  password?: string;
+} & Record<string, WPQueryValue>
+
+// edit — _fields validated against TEditView
+{
+  context: 'edit';
+  _embed?: boolean | string | readonly string[];
+  _fields?: readonly WPFieldSelector<TEditView>[];
   password?: string;
 } & Record<string, WPQueryValue>
 ```
 
-`WPListQuery<T>` (for `list` / `listAll`) extends it with:
+`WPListQuery<TView, TEditView>` (for `list` / `listAll`) extends the same
+discriminated union with:
 `page`, `per_page`, `offset`, `search`, `order` (`'asc' | 'desc'`), `orderby`,
 `include`, `exclude`, `slug`, `after`, `before`, `modified_after`,
 `modified_before` (Date or string), `author`, `parent`, `categories`, `tags`,
@@ -91,10 +101,11 @@ response shape, plus arbitrary pass-through keys:
 ## Type-level resolution
 
 ```ts
-type ResolveEntity<TView, TEmbedView, TEmbedded, Q>
+type ResolveEntity<TView, TEmbedView, TEmbedded, TEditView, Q>
 ```
 
 Applies, in order: `Q extends { context: 'embed' }` → `TEmbedView`;
+`Q extends { context: 'edit' }` → `TEditView`;
 `Q extends { _embed: ... }` → intersect `{ _embedded: TEmbedded }`;
 `Q extends { _fields: [...] }` → `Pick` of the top-level field heads
 (`'_links.wp:term'` → `'_links'`).
@@ -123,8 +134,28 @@ Applies, in order: `Q extends { context: 'embed' }` → `TEmbedView`;
   (`'post' | 'term' | 'post-format'` + open), `subtype`, `_links`
 
 Building blocks: `WPRendered` (`{ rendered: string }`), `WPRenderedContent`
-(adds `protected?`), `WPLink`, `WPLinks`, `WPPostStatus`, `WPMediaSize`,
-`WPMediaDetails`.
+(adds `protected?`), `WPEditRendered` (`{ raw, rendered }`),
+`WPEditRenderedContent` (adds `protected?`), `MapEditContextFields<T>`
+(maps view rendered fields to edit counterparts), `WPLink`, `WPLinks`,
+`WPPostStatus`, `WPMediaSize`, `WPMediaDetails`.
+
+## Edit-context entities (returned for `context: 'edit'`)
+
+`WPPostEditContext`, `WPPageEditContext` — `MapEditContextFields` of the full
+entities with `content: WPEditPostContent` (`block_version`), plus
+`permalink_template` and `generated_slug`.
+
+`WPMediaEditContext` — `MapEditContextFields<WPMedia>` plus `filename`,
+`filesize` (`number | null`), and `missing_image_sizes`.
+
+`WPUserEditContext` — `WPUser` plus `username`, `email`,
+`registered_date`, `roles`, `capabilities`, `extra_capabilities`, `locale`,
+`nickname`, `first_name`, `last_name` (representative edit-only fields; the
+full WP schema may include more).
+
+Custom post types default to `MapEditContextFields<T>` for the edit
+context (see Collection generics below). Only top-level `WPRendered` /
+`WPRenderedContent` keys are mapped — nested rendered fields are not.
 
 ## Embed-context entities (returned for `context: 'embed'`)
 
@@ -150,8 +181,12 @@ Used by posts/pages/media (`WPPostEmbedded`) and categories/tags
 
 ## Collection generics
 
+`WPCollection<TView, TEmbedView, TEmbedded, TEditView>` — `TEditView`
+defaults to `MapEditContextFields<TView>`.
+
 `wp.postType<T>(restBase)` → `WPCollection<T, T, WPPostEmbedded>` —
-note `context: 'embed'` does not reduce custom types (TEmbedView = T).
+note `context: 'embed'` does not reduce custom types (TEmbedView = T);
+`context: 'edit'` maps rendered fields via `MapEditContextFields<T>`.
 `wp.taxonomy<T>(restBase)` → `WPCollection<T, T, WPTermEmbedded>`.
 
 ## Behavior notes

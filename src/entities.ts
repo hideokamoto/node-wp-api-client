@@ -11,6 +11,39 @@ export type WPRenderedContent = {
   protected?: boolean;
 };
 
+/** Rendered field shape returned when `context=edit` is requested. */
+export type WPEditRendered = {
+  raw: string;
+  rendered: string;
+};
+
+/** Content/excerpt field shape returned when `context=edit` is requested. */
+export type WPEditRenderedContent = {
+  raw: string;
+  rendered: string;
+  protected?: boolean;
+};
+
+/** Content field shape returned when `context=edit` is requested on posts/pages. */
+export type WPEditPostContent = WPEditRenderedContent & {
+  block_version: number;
+};
+
+/**
+ * Maps view-context rendered fields to their edit-context counterparts.
+ * Useful for custom post types that extend `WPPost`-like shapes.
+ *
+ * Only top-level keys whose type is `WPRendered` or `WPRenderedContent` are
+ * transformed — nested rendered fields (e.g. inside ACF objects) are not.
+ */
+export type MapEditContextFields<T> = {
+  [K in keyof T]: T[K] extends WPRenderedContent
+    ? WPEditRenderedContent
+    : T[K] extends WPRendered
+      ? WPEditRendered
+      : T[K];
+};
+
 export type WPLink = {
   href: string;
   embeddable?: boolean;
@@ -290,6 +323,45 @@ export type WPUserEmbedContext = Pick<
   WPUser,
   'id' | 'name' | 'url' | 'description' | 'link' | 'slug' | 'avatar_urls' | '_links'
 >;
+
+/**
+ * Entity shapes returned when `context=edit` is requested.
+ */
+export type WPPostEditContext = Omit<MapEditContextFields<WPPost>, 'content'> & {
+  content: WPEditPostContent;
+  permalink_template: string;
+  generated_slug: string;
+};
+
+export type WPPageEditContext = Omit<MapEditContextFields<WPPage>, 'content'> & {
+  content: WPEditPostContent;
+  permalink_template: string;
+  generated_slug: string;
+};
+
+export type WPMediaEditContext = MapEditContextFields<WPMedia> & {
+  filename: string;
+  filesize: number | null;
+  missing_image_sizes: string[];
+};
+
+/**
+ * User entity in edit context. Includes the most common edit-only fields
+ * exposed by the WP REST API; the full schema may include additional keys
+ * (e.g. plugin meta) not listed here.
+ */
+export type WPUserEditContext = WPUser & {
+  username: string;
+  email: string;
+  registered_date: string;
+  roles: string[];
+  capabilities: Record<string, boolean>;
+  extra_capabilities: Record<string, boolean>;
+  locale: string;
+  nickname: string;
+  first_name: string;
+  last_name: string;
+};
 
 /**
  * `_embedded` payload shapes added when `_embed` is requested.

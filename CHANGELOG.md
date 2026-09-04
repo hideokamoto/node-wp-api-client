@@ -1,7 +1,26 @@
 # Changelog
 
-## [0.2.0](https://github.com/hideokamoto/node-wp-api-client/compare/v0.1.0...v0.2.0) (2026-06-10)
+## [0.3.0](https://github.com/hideokamoto/node-wp-api-client/compare/v0.2.0...v0.3.0)
 
+### Features
+
+- `context: 'edit'` type resolution in `ResolveEntity` — rendered fields include `raw`
+  (`WPEditRendered`, `WPEditRenderedContent`, `WPEditPostContent`,
+  `MapEditContextFields`, and built-in edit-context entity types including
+  `permalink_template`, `generated_slug`, and media file metadata)
+- Fourth generic `TEditView` on `WPCollection` (defaults to `MapEditContextFields<TView>`)
+- Context-aware `_fields` validation when `context: 'edit'` is set (e.g. `email` on users)
+
+### Changed
+
+- **`ResolveEntity` signature** — fourth type parameter `TEditView` added
+- **`WPSingleQuery` / `WPListQuery` signatures** — optional second type parameter `TEditView`
+
+### Notes
+
+- `MapEditContextFields` only transforms top-level `WPRendered` / `WPRenderedContent` keys
+
+## [0.2.0](https://github.com/hideokamoto/node-wp-api-client/compare/v0.1.0...v0.2.0) (2026-06-10)
 
 ### Features
 

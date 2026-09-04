@@ -45,12 +45,17 @@ embedded[0]?._embedded?.['wp:term']; // fully typed
 
 // context: 'embed' → reduced entity (e.g. WPPostEmbedContext)
 const { items: brief } = await wp.posts.list({ context: 'embed' });
+
+// context: 'edit' → edit entity (content.raw, title.raw, …)
+const post = await wp.posts.get(1, { context: 'edit' });
+post.content.raw;
 ```
 
 Transformations apply in this order (matching the server):
-`context: 'embed'` switches to the reduced entity → `_embed` intersects
-`{ _embedded }` → `_fields` `Pick`s the listed **top-level** fields (a nested
-path like `'_links.wp:term'` selects its top-level key `_links`).
+`context: 'embed'` switches to the reduced entity → `context: 'edit'` switches to
+the edit entity (`raw` on rendered fields) → `_embed` intersects `{ _embedded }` →
+`_fields` `Pick`s the listed **top-level** fields (a nested path like
+`'_links.wp:term'` selects its top-level key `_links`).
 
 Pitfall: when combining `_embed` with `_fields`, `'_embedded'` must be listed
 in `_fields` or the server strips it (and the type reflects that):
@@ -63,7 +68,9 @@ const { items: cards } = await wp.posts.list({
 ```
 
 `_fields` entries are validated against the entity type — typos are compile
-errors and the editor suggests known field names.
+errors and the editor suggests known field names. With `context: 'edit'`,
+`_fields` is validated against the edit-context entity (so `email` is valid
+on `wp.users` only when `context: 'edit'` is set).
 
 ## Collections and methods
 
@@ -218,5 +225,6 @@ try {
 ## Reference
 
 For the full list of exported entity types (`WPPost`, `WPPage`, `WPCategory`,
-`WPTag`, `WPMedia`, `WPUser`, `WPSearchResult`, embed-context and `_embedded`
-shapes) and query parameter types, read [references/api.md](references/api.md).
+`WPTag`, `WPMedia`, `WPUser`, `WPSearchResult`, embed-context, edit-context,
+and `_embedded` shapes) and query parameter types, read
+[references/api.md](references/api.md).
