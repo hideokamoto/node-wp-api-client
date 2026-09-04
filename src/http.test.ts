@@ -253,9 +253,9 @@ describe('HttpClient', () => {
         retry: { attempts: 3, backoffMs: 1000 },
       });
       const start = Date.now();
-      await expect(
-        http.fetchAbsolute('https://example.com/wp-json/wp/v2/posts/1')
-      ).rejects.toBe(abortError);
+      await expect(http.fetchAbsolute('https://example.com/wp-json/wp/v2/posts/1')).rejects.toBe(
+        abortError
+      );
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(Date.now() - start).toBeLessThan(500);
     });
