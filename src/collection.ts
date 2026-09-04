@@ -130,7 +130,9 @@ export class WPCollection<
   ): Promise<ResolveEntity<TView, TEmbedView, TEmbedded, Q>[]> {
     type Item = ResolveEntity<TView, TEmbedView, TEmbedded, Q>;
     const perPage =
-      (query as { per_page?: number } | undefined)?.per_page ?? DEFAULT_LIST_ALL_PER_PAGE;
+      (query as { per_page?: number } | undefined)?.per_page ??
+      (typeof this.defaultQuery?.per_page === 'number' ? this.defaultQuery.per_page : undefined) ??
+      DEFAULT_LIST_ALL_PER_PAGE;
     const pageQuery = (page: number) =>
       ({ ...query, per_page: perPage, page }) as WPListQuery<TView>;
 

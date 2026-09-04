@@ -253,11 +253,31 @@ describe('HttpClient', () => {
         retry: { attempts: 3, backoffMs: 1000 },
       });
       const start = Date.now();
-      await expect(
-        http.fetchAbsolute('https://example.com/wp-json/wp/v2/posts/1')
-      ).rejects.toBe(abortError);
+      await expect(http.fetchAbsolute('https://example.com/wp-json/wp/v2/posts/1')).rejects.toBe(
+        abortError
+      );
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(Date.now() - start).toBeLessThan(500);
+    });
+
+    it('resolves root-relative URLs against the client origin', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }));
+      const http = new HttpClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await http.fetchAbsolute('/wp-json/wp/v2/posts/1');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/wp-json/wp/v2/posts/1',
+        expect.anything()
+      );
+    });
+
+    it('resolves wp-json-relative URLs against the REST root', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 2 }));
+      const http = new HttpClient({ baseUrl: 'https://example.com/wp-json', fetch: fetchMock });
+      await http.fetchAbsolute('wp/v2/posts/2');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/wp-json/wp/v2/posts/2',
+        expect.anything()
+      );
     });
   });
 
