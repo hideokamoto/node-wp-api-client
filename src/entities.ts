@@ -44,7 +44,8 @@ export function getLinks(
   entity: { _links?: WPLinks } | null | undefined,
   relation: WPLinkRelation
 ): WPLink[] {
-  return entity?._links?.[relation] ?? [];
+  const links = entity?._links?.[relation];
+  return Array.isArray(links) ? links : [];
 }
 
 /**

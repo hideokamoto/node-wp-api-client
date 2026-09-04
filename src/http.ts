@@ -44,6 +44,13 @@ const normalizeBaseUrl = (baseUrl: string): string => {
   return trimmed.endsWith('/wp-json') ? trimmed : `${trimmed}/wp-json`;
 };
 
+const resolveAbsoluteUrl = (url: string, baseUrl: string): string => {
+  if (/^https?:\/\//i.test(url)) return url;
+  const base = new URL(baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`);
+  if (url.startsWith('//')) return `${base.protocol}${url}`;
+  return new URL(url, base).href;
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const backoffDelay = (baseMs: number, attempt: number): number => {
@@ -103,7 +110,8 @@ export class HttpClient {
    * Useful for following HATEOAS links from `_links.href`.
    */
   async fetchAbsolute<T>(url: string, init?: WPRequestInit): Promise<T> {
-    const { data } = await this.doFetch<T>(url, { ...this.defaultInit, ...init });
+    const resolvedUrl = resolveAbsoluteUrl(url, this.baseUrl);
+    const { data } = await this.doFetch<T>(resolvedUrl, { ...this.defaultInit, ...init });
     return data;
   }
 
