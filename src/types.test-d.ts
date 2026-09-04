@@ -124,7 +124,7 @@ describe('response type resolution', () => {
       _fields: ['filename', 'filesize', 'missing_image_sizes'],
     });
     expectTypeOf(media.filename).toEqualTypeOf<string>();
-    expectTypeOf(media.filesize).toEqualTypeOf<number>();
+    expectTypeOf(media.filesize).toEqualTypeOf<number | null>();
     expectTypeOf(media.missing_image_sizes).toEqualTypeOf<string[]>();
     // @ts-expect-error -- permalink_template is not on media
     await wp.media.get(1, { context: 'edit', _fields: ['permalink_template'] });
