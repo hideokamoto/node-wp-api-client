@@ -1,6 +1,7 @@
 import { WPCollection, type WPListQuery, type WPListResult } from './collection';
 import type {
   WPCategory,
+  WPLink,
   WPMedia,
   WPMediaEmbedContext,
   WPPage,
@@ -8,6 +9,7 @@ import type {
   WPPost,
   WPPostEmbedContext,
   WPPostEmbedded,
+  WPRootResponse,
   WPSearchResult,
   WPTag,
   WPTermEmbedContext,
@@ -105,6 +107,36 @@ export class WPApiClient {
    */
   taxonomy<T extends object = WPCategory>(restBase: string): WPCollection<T, T, WPTermEmbedded> {
     return this.collection(restBase);
+  }
+
+  /**
+   * Fetches the WP REST API root (`GET /wp-json/`) and returns the site's
+   * available namespaces and registered routes.
+   *
+   * ```ts
+   * const root = await wp.discover();
+   * console.log(root.namespaces);          // ['wp/v2', 'myplugin/v1']
+   * console.log(Object.keys(root.routes)); // ['/wp/v2/posts', '/wp/v2/events', ...]
+   * ```
+   */
+  async discover(init?: WPRequestInit): Promise<WPRootResponse> {
+    const { data } = await this.http.get<WPRootResponse>('/', undefined, init);
+    return data;
+  }
+
+  /**
+   * Follows a HATEOAS link by fetching its `href` directly and returns typed data.
+   *
+   * ```ts
+   * const post = await wp.posts.get(1);
+   * const selfLink = getFirstLink(post, 'self');
+   * if (selfLink) {
+   *   const same = await wp.fetchLink<WPPost>(selfLink);
+   * }
+   * ```
+   */
+  async fetchLink<T>(link: WPLink, init?: WPRequestInit): Promise<T> {
+    return this.http.fetchAbsolute<T>(link.href, init);
   }
 
   /**

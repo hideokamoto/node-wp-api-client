@@ -95,8 +95,22 @@ export class HttpClient {
   ): Promise<{ data: T; response: Response }> {
     const queryString = query?.toString();
     const url = queryString ? `${this.baseUrl}${path}?${queryString}` : `${this.baseUrl}${path}`;
-    const requestInit: WPRequestInit = { ...this.defaultInit, ...init };
+    return this.doFetch<T>(url, { ...this.defaultInit, ...init });
+  }
 
+  /**
+   * Fetches an absolute URL directly, bypassing baseUrl, and returns parsed JSON.
+   * Useful for following HATEOAS links from `_links.href`.
+   */
+  async fetchAbsolute<T>(url: string, init?: WPRequestInit): Promise<T> {
+    const { data } = await this.doFetch<T>(url, { ...this.defaultInit, ...init });
+    return data;
+  }
+
+  private async doFetch<T>(
+    url: string,
+    requestInit: WPRequestInit
+  ): Promise<{ data: T; response: Response }> {
     const attempts = this.retry === false ? 1 : this.retry.attempts;
     const backoffMs = this.retry === false ? 0 : this.retry.backoffMs;
     const retryableStatusCodes = this.retry === false ? [] : this.retry.retryableStatusCodes;

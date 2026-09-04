@@ -108,6 +108,66 @@ await wp.postType('stripe').list({ 'stripe-categories': category.id, _embed: tru
 await wp.posts.list({ 'filter[lang]': 'en' });
 ```
 
+## HATEOAS: endpoint discovery and link traversal
+
+The WP REST API is HATEOAS-based: the root endpoint lists all available
+routes, and every resource carries a `_links` object with hrefs to related
+resources.
+
+### Root endpoint discovery
+
+```ts
+const root = await wp.discover();
+root.namespaces;           // ['wp/v2', 'myplugin/v1']
+Object.keys(root.routes);  // ['/wp/v2/posts', '/wp/v2/events', ...]
+
+// Use to find and configure custom post types dynamically
+wp.postType('events'); // once you know the rest_base from root.routes
+```
+
+### Link helpers
+
+```ts
+import { getLinks, getFirstLink } from 'node-wp-api-client';
+
+const post = await wp.posts.get(1);
+
+// Get all links for a relation (returns WPLink[])
+const termLinks = getLinks(post, 'wp:term'); // two entries: categories + tags
+
+// Get the first link for a relation (returns WPLink | undefined)
+const selfLink = getFirstLink(post, 'self');
+```
+
+`WPLinkRelation` is a string union of well-known relation names
+(`'self'`, `'collection'`, `'author'`, `'wp:term'`, `'wp:featuredmedia'`,
+`'up'`, etc.) that provides autocompletion while still accepting any string.
+
+### Link traversal (`fetchLink`)
+
+Follow any `WPLink` href to lazily load related resources without `_embed`.
+Useful when you already have the entity and only occasionally need one of
+its relations.
+
+```ts
+const post = await wp.posts.get(1);
+const selfLink = getFirstLink(post, 'self');
+if (selfLink) {
+  const same = await wp.fetchLink<WPPost>(selfLink);
+}
+
+// Follow all wp:term links to get raw term arrays
+const termLinks = getLinks(post, 'wp:term');
+const terms = await Promise.all(termLinks.map(l => wp.fetchLink<WPEmbeddedTerm>(l)));
+```
+
+`fetchLink` respects the client's retry and `defaultInit` settings. It
+fetches the exact `href` URL as-is — links pointing to other origins work too.
+
+**When to use `_embed` vs `fetchLink`:** prefer `_embed: true` (or scoped
+`_embed: ['wp:term']`) when you always need the related data — it saves
+round trips. Use `fetchLink` for lazy or conditional loading.
+
 ## Client configuration
 
 ```ts

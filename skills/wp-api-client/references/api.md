@@ -7,10 +7,48 @@ All symbols are exported from the package root (`node-wp-api-client`).
 | Export | Kind | Purpose |
 | --- | --- | --- |
 | `createWPClient(config)` | function | Creates a `WPApiClient` (preferred entry point) |
-| `WPApiClient` | class | The client; holds collections and `postType` / `taxonomy` / `search` |
+| `WPApiClient` | class | The client; holds collections and `postType` / `taxonomy` / `search` / `discover` / `fetchLink` |
 | `WPCollection<TView, TEmbedView, TEmbedded>` | class | One REST collection; `list` / `listAll` / `get` / `getBySlug` |
 | `WPApiError` | class | Thrown on non-OK responses; `status`, `code?`, `data?` |
 | `buildQuery(query)` | function | Serializes a query object to `URLSearchParams` (WP conventions) |
+| `getLinks(entity, relation)` | function | Returns `WPLink[]` for a relation from an entity's `_links` (empty array if absent) |
+| `getFirstLink(entity, relation)` | function | Returns the first `WPLink` for a relation, or `undefined` |
+
+## HATEOAS methods on `WPApiClient`
+
+```ts
+// Fetch GET /wp-json/ — returns available namespaces and routes
+wp.discover(init?: WPRequestInit): Promise<WPRootResponse>
+
+// Follow a WPLink href and return typed data
+wp.fetchLink<T>(link: WPLink, init?: WPRequestInit): Promise<T>
+```
+
+## HATEOAS types
+
+```ts
+type WPLinkRelation =
+  | 'self' | 'collection' | 'about' | 'author'
+  | 'wp:term' | 'wp:featuredmedia' | 'wp:attachment' | 'wp:post-type'
+  | 'up' | 'curies'
+  | (string & {}); // accepts any string, provides autocomplete for known values
+
+type WPRoute = {
+  namespace: string;
+  methods: string[];
+  endpoints: Array<{ methods: string[]; args: Record<string, unknown> }>;
+  _links?: { self: Array<{ href: string }> };
+};
+
+type WPRootResponse = {
+  name: string; description: string; url: string; home: string;
+  gmt_offset: number; timezone_string: string;
+  namespaces: string[];
+  authentication: Record<string, unknown>;
+  routes: Record<string, WPRoute>;
+  _links?: WPLinks;
+};
+```
 
 ## `WPClientConfig`
 
