@@ -271,6 +271,19 @@ describe('createWPClient', () => {
       expect(lastRequestUrl(fetchMock).searchParams.get('per_page')).toBe('7');
     });
 
+    it('uses defaultQuery.per_page when the caller does not specify per_page', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(jsonResponse([post(1)], { 'X-WP-Total': '1', 'X-WP-TotalPages': '1' }));
+      const wp = createWPClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        defaultQuery: { per_page: 7 },
+      });
+      await wp.posts.listAll();
+      expect(lastRequestUrl(fetchMock).searchParams.get('per_page')).toBe('7');
+    });
+
     it('overrides a caller-specified page and starts at page 1', async () => {
       const fetchMock = vi
         .fn()
@@ -472,6 +485,18 @@ describe('createWPClient', () => {
         expect.anything()
       );
     });
+
+    it('resolves root-relative hrefs against the client baseUrl origin', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+
+      await wp.fetchLink({ href: '/wp-json/wp/v2/posts/1' });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/wp-json/wp/v2/posts/1',
+        expect.anything()
+      );
+    });
   });
 
   describe('namespace', () => {
@@ -537,6 +562,10 @@ describe('getLinks', () => {
 
   it('returns an empty array when entity has no _links', () => {
     expect(getLinks({}, 'self')).toEqual([]);
+  });
+
+  it('returns an empty array when the relation value is not an array', () => {
+    expect(getLinks({ _links: { self: 'not-an-array' as unknown as [] } }, 'self')).toEqual([]);
   });
 });
 
