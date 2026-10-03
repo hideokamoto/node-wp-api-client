@@ -164,11 +164,11 @@ cp -r node_modules/node-wp-api-client/skills/wp-api-client .claude/skills/
 ## Development
 
 ```bash
-npm install
-npm test            # unit tests + type-level tests (vitest --typecheck)
-npm run typecheck   # tsc --noEmit
-npm run lint        # biome check
-npm run build       # vite (ESM + CJS) + tsc declarations
+pnpm install
+pnpm test           # unit tests + type-level tests (vitest --typecheck)
+pnpm run typecheck  # tsc --noEmit
+pnpm run lint       # biome check
+pnpm run build      # vite (ESM + CJS) + tsc declarations
 ```
 
 ## License
