@@ -1,5 +1,7 @@
 # Changelog
 
+以降のリリースノートは [GitHub Releases](https://github.com/hideokamoto/node-wp-api-client/releases) に掲載します。
+
 ## [0.3.0](https://github.com/hideokamoto/node-wp-api-client/compare/v0.2.0...v0.3.0)
 
 ### Features
