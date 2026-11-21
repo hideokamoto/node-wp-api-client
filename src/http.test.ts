@@ -248,7 +248,13 @@ describe('HttpClient', () => {
 
     it('waits between retry attempts when backoffMs is positive', async () => {
       vi.useFakeTimers();
-      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+      const delays: number[] = [];
+      const originalSetTimeout = globalThis.setTimeout;
+      vi.spyOn(globalThis, 'setTimeout').mockImplementation((handler, ms, ...rest) => {
+        if (typeof ms === 'number') delays.push(ms);
+        return originalSetTimeout(handler, ms, ...rest);
+      });
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(1);
       const fetchMock = vi
         .fn()
         .mockRejectedValueOnce(new TypeError('fetch failed'))
@@ -260,11 +266,10 @@ describe('HttpClient', () => {
         retry: { attempts: 3, backoffMs: 100 },
       });
       const resultPromise = http.get('/wp/v2/posts');
-      await vi.advanceTimersByTimeAsync(75);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      await vi.advanceTimersByTimeAsync(150);
+      await vi.advanceTimersByTimeAsync(5000);
       await expect(resultPromise).resolves.toMatchObject({ data: [{ id: 1 }] });
       expect(fetchMock).toHaveBeenCalledTimes(3);
+      expect(delays).toEqual([125, 250]);
       randomSpy.mockRestore();
       vi.useRealTimers();
     });

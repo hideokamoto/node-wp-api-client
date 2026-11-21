@@ -1,0 +1,62 @@
+{
+  "18h80h00gic": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:49:32 endsWith -> startsWith"
+  },
+  "1edtxi6hzmf": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:146:28 attempt < attempts - 1 -> true"
+  },
+  "1ejhjt9bdb6": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/collection.ts:155:9 firstPage.totalPages > 1 -> firstPage.totalPages >= 1"
+  },
+  "1jfilrpq1ui": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:138:25 attempts - 1 -> attempts + 1"
+  },
+  "1jfv04pap5i": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:50:11 startsWith -> endsWith"
+  },
+  "1la1tdazi5": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/collection.ts:157:23 new Array<Item[]>(restPageCount) -> new Array()"
+  },
+  "1o6p6vf5ba9": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:138:13 attempt === attempts - 1 -> false"
+  },
+  "277ucjv656d": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:146:28 attempt < attempts - 1 -> attempt <= attempts - 1"
+  },
+  "2d29n11nukm": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:49:24 baseUrl.endsWith('/') -> false"
+  },
+  "3yzq3n9epk": {
+    "reason": "Loop bound equivalent when attempts is always at least 1 (DEFAULT_RETRY and user config)",
+    "where": "src/http.ts:127:27 attempt < attempts -> attempt <= attempts"
+  },
+  "4kmaz84z4z": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/query.ts:39:31 { params.set(key, value.join(',')); continue; } -> {}"
+  },
+  "7twlan9z3e": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/collection.ts:155:9 firstPage.totalPages > 1 -> true"
+  },
+  "dggycy9acb": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/collection.ts:126:69 '10' -> ''"
+  },
+  "irf75es0a0": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:50:7 url.startsWith('//') -> false"
+  },
+  "ofunqsyue0": {
+    "reason": "Observationally equivalent for this API: default per_page fallback, listAll guard, URL resolution branches, retry boundaries, and array join vs String for primitive arrays",
+    "where": "src/http.ts:146:38 attempts - 1 -> attempts + 1"
+  }
+}
