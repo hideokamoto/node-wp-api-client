@@ -25,6 +25,7 @@ describe('buildQuery', () => {
     const params = buildQuery({ include: [1, 2, 3], slug: ['a', 'b'] });
     expect(params.get('include')).toBe('1,2,3');
     expect(params.get('slug')).toBe('a,b');
+    expect(params.toString()).toBe('include=1%2C2%2C3&slug=a%2Cb');
   });
 
   it('omits empty arrays', () => {

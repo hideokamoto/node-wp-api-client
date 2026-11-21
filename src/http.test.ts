@@ -17,6 +17,7 @@ describe('HttpClient', () => {
       ['https://example.com/wp-json', 'https://example.com/wp-json/wp/v2/posts'],
       ['https://example.com/wp-json/', 'https://example.com/wp-json/wp/v2/posts'],
       ['https://example.com/blog', 'https://example.com/blog/wp-json/wp/v2/posts'],
+      ['https://example.com///', 'https://example.com/wp-json/wp/v2/posts'],
     ])('normalizes baseUrl %s', async (baseUrl, expected) => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
       const http = new HttpClient({ baseUrl, fetch: fetchMock });
@@ -46,6 +47,7 @@ describe('HttpClient', () => {
       const error = await http.get('/wp/v2/posts').catch((e: unknown) => e);
       expect(error).toBeInstanceOf(WPApiError);
       expect((error as WPApiError).status).toBe(200);
+      expect((error as WPApiError).message).toMatch(/^Failed to parse response body as JSON:/);
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
@@ -75,6 +77,25 @@ describe('HttpClient', () => {
       expect(wpError.status).toBe(404);
       expect(wpError.code).toBe('rest_post_invalid_id');
       expect(wpError.message).toBe('Invalid post ID.');
+      expect(wpError.name).toBe('WPApiError');
+    });
+
+    it('ignores non-string WP error codes in a JSON error body', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ code: 123, message: 'Broken', data: { status: 400 } }, { status: 400 })
+        );
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: false,
+      });
+      const error = await http.get('/wp/v2/posts').catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WPApiError);
+      const wpError = error as WPApiError;
+      expect(wpError.message).toBe('Broken');
+      expect(wpError.code).toBeUndefined();
     });
 
     it('throws WPApiError even when the error body is not JSON', async () => {
@@ -89,6 +110,25 @@ describe('HttpClient', () => {
       const error = await http.get('/wp/v2/posts').catch((e: unknown) => e);
       expect(error).toBeInstanceOf(WPApiError);
       expect((error as WPApiError).status).toBe(502);
+      expect((error as WPApiError).name).toBe('WPApiError');
+      expect((error as WPApiError).message).toBe('WP API request failed with status 502');
+    });
+
+    it('keeps the generic message when the error JSON body has no string message', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse({ code: 'rest_error', message: 404, data: { status: 500 } }, { status: 500 })
+        );
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: false,
+      });
+      const error = await http.get('/wp/v2/posts').catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WPApiError);
+      expect((error as WPApiError).message).toBe('WP API request failed with status 500');
+      expect((error as WPApiError).code).toBe('rest_error');
     });
   });
 
@@ -143,6 +183,17 @@ describe('HttpClient', () => {
       expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
+    it('retries a retryable status only until the final allowed attempt', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('', { status: 503 }));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { attempts: 2, backoffMs: 0 },
+      });
+      await expect(http.get('/wp/v2/posts')).rejects.toBeInstanceOf(WPApiError);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('throws the original error when every attempt fails with a network error', async () => {
       const networkError = new TypeError('fetch failed');
       const fetchMock = vi.fn().mockRejectedValue(networkError);
@@ -193,6 +244,40 @@ describe('HttpClient', () => {
       });
       await expect(http.get('/wp/v2/posts')).rejects.toBeInstanceOf(WPApiError);
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits between retry attempts when backoffMs is positive', async () => {
+      vi.useFakeTimers();
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+      const fetchMock = vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('fetch failed'))
+        .mockRejectedValueOnce(new TypeError('fetch failed'))
+        .mockResolvedValueOnce(jsonResponse([{ id: 1 }]));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { attempts: 3, backoffMs: 100 },
+      });
+      const resultPromise = http.get('/wp/v2/posts');
+      await vi.advanceTimersByTimeAsync(75);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(150);
+      await expect(resultPromise).resolves.toMatchObject({ data: [{ id: 1 }] });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+      randomSpy.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it('stops after the configured attempt count without an extra fetch', async () => {
+      const fetchMock = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        retry: { attempts: 2, backoffMs: 0 },
+      });
+      await expect(http.get('/wp/v2/posts')).rejects.toThrow('fetch failed');
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -279,6 +364,71 @@ describe('HttpClient', () => {
         expect.anything()
       );
     });
+
+    it('does not treat a relative path containing http:// as an absolute URL', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 6 }));
+      const http = new HttpClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await http.fetchAbsolute('/assets/https://should-not-match');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/assets/https://should-not-match',
+        expect.anything()
+      );
+    });
+
+    it('resolves protocol-relative URLs against the client origin when baseUrl ends with /', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 7 }));
+      const http = new HttpClient({ baseUrl: 'https://example.com/', fetch: fetchMock });
+      await http.fetchAbsolute('wp/v2/posts/7');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/wp-json/wp/v2/posts/7',
+        expect.anything()
+      );
+    });
+
+    it('resolves protocol-relative URLs against the client origin', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 3 }));
+      const http = new HttpClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await http.fetchAbsolute('//cdn.example.com/wp-json/wp/v2/posts/3');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://cdn.example.com/wp-json/wp/v2/posts/3',
+        expect.anything()
+      );
+    });
+
+    it('passes absolute URLs through without changing scheme or host', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 4 }));
+      const http = new HttpClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await http.fetchAbsolute('HTTP://Other.Example.COM/wp-json/wp/v2/posts/4');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'HTTP://Other.Example.COM/wp-json/wp/v2/posts/4',
+        expect.anything()
+      );
+    });
+
+    it('resolves root-relative paths when baseUrl has no trailing slash', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 5 }));
+      const http = new HttpClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      await http.fetchAbsolute('/wp-json/custom/v1/items');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/wp-json/custom/v1/items',
+        expect.anything()
+      );
+    });
+  });
+
+  describe('default fetch', () => {
+    it('uses globalThis.fetch when no custom fetch is provided', async () => {
+      const globalFetch = vi
+        .spyOn(globalThis, 'fetch')
+        .mockResolvedValue(jsonResponse({ ok: true }) as Response);
+      const http = new HttpClient({ baseUrl: 'https://example.com' });
+      const data = await http.fetchAbsolute<{ ok: boolean }>(
+        'https://example.com/wp-json/wp/v2/posts/1'
+      );
+      expect(data).toEqual({ ok: true });
+      expect(globalFetch).toHaveBeenCalled();
+      globalFetch.mockRestore();
+    });
   });
 
   describe('request init', () => {
@@ -303,6 +453,25 @@ describe('HttpClient', () => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({ cache: 'no-store', next: { revalidate: 60 } })
+      );
+    });
+
+    it('merges defaultInit when fetchAbsolute is called', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: 1 }));
+      const http = new HttpClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        defaultInit: { cache: 'force-cache' },
+      });
+      await http.fetchAbsolute('https://example.com/wp-json/wp/v2/posts/1', {
+        headers: { accept: 'application/json' },
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://example.com/wp-json/wp/v2/posts/1',
+        expect.objectContaining({
+          cache: 'force-cache',
+          headers: { accept: 'application/json' },
+        })
       );
     });
   });
