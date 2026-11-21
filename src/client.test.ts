@@ -42,6 +42,14 @@ describe('createWPClient', () => {
       expect(result.totalPages).toBe(13);
     });
 
+    it('assumes per_page=10 when deriving totalPages and per_page is omitted', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([post(1)], { 'X-WP-Total': '25' }));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const result = await wp.posts.list();
+      expect(lastRequestUrl(fetchMock).searchParams.has('per_page')).toBe(false);
+      expect(result.totalPages).toBe(3); // Math.ceil(25 / 10)
+    });
+
     it('defaults total and totalPages to items length / 1 when headers are missing', async () => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse([post(1)]));
       const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
@@ -69,6 +77,15 @@ describe('createWPClient', () => {
       const result = await wp.posts.list();
       expect(result.total).toBe(0);
       expect(result.totalPages).toBe(0);
+    });
+
+    it('treats non-positive per_page as 10 when deriving totalPages from X-WP-Total', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([post(1)], { 'X-WP-Total': '25' }));
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const result = await wp.posts.list({ per_page: 0 });
+      expect(lastRequestUrl(fetchMock).searchParams.get('per_page')).toBe('0');
+      expect(result.total).toBe(25);
+      expect(result.totalPages).toBe(3); // Math.ceil(25 / 10)
     });
 
     it('derives totalPages from total and per_page when X-WP-TotalPages is missing', async () => {
@@ -116,14 +133,18 @@ describe('createWPClient', () => {
     ])('rejects invalid id %p with a TypeError without making a request', async (id) => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse(post(1)));
       const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
-      await expect(wp.posts.get(id)).rejects.toThrow(TypeError);
+      await expect(wp.posts.get(id)).rejects.toThrow(
+        new TypeError(`Entity id must be a positive integer, got: ${id}`)
+      );
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('rejects a path traversal id passed from untyped code', async () => {
       const fetchMock = vi.fn().mockResolvedValue(jsonResponse(post(1)));
       const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
-      await expect(wp.posts.get('1/../../users' as unknown as number)).rejects.toThrow(TypeError);
+      await expect(wp.posts.get('1/../../users' as unknown as number)).rejects.toThrow(
+        /Entity id must be a positive integer/
+      );
       expect(fetchMock).not.toHaveBeenCalled();
     });
   });
@@ -209,6 +230,25 @@ describe('createWPClient', () => {
       const items = await wp.posts.listAll();
       expect(items).toHaveLength(1);
       expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect([
+        ...new Set(
+          fetchMock.mock.calls.map((c) => new URL(c[0] as string).searchParams.get('page'))
+        ),
+      ]).toEqual(['1']);
+    });
+
+    it('includes items from every subsequent page when totalPages is greater than one', async () => {
+      const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+        const page = Number(new URL(url).searchParams.get('page'));
+        return jsonResponse([post(page * 10)], {
+          'X-WP-Total': '2',
+          'X-WP-TotalPages': '2',
+        });
+      });
+      const wp = createWPClient({ baseUrl: 'https://example.com', fetch: fetchMock });
+      const items = await wp.posts.listAll({ per_page: 1 });
+      expect(items.map((p) => p.id)).toEqual([10, 20]);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
     it('fetches all pages when X-WP-TotalPages is missing but X-WP-Total indicates multiple pages', async () => {
@@ -509,6 +549,17 @@ describe('createWPClient', () => {
       });
       await wp.posts.list();
       expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/custom/v1/posts');
+    });
+
+    it('strips redundant leading and trailing slashes from namespaces and rest bases', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(jsonResponse([]));
+      const wp = createWPClient({
+        baseUrl: 'https://example.com',
+        fetch: fetchMock,
+        namespace: '///myplugin/v1///',
+      });
+      await wp.postType('///events///').list();
+      expect(lastRequestUrl(fetchMock).pathname).toBe('/wp-json/myplugin/v1/events');
     });
 
     it('keeps multi-segment namespaces intact while encoding each segment', async () => {
